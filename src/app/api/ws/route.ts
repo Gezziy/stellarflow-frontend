@@ -176,6 +176,3 @@ export async function GET(_request: NextRequest) {
   // This is a placeholder - WebSocket upgrade happens in the Next.js server
   return new NextResponse('WebSocket endpoint', { status: 200 })
 }
-
-// Export for use in server.js or custom server setup
-export { getWebSocketServer, assetSubscriptions }

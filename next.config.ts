@@ -6,11 +6,15 @@ const withBundleAnalyzerConfig = withBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
 
+const isStandaloneBuild = process.env.NEXT_OUTPUT_MODE === "standalone";
+
 const withPwaConfig = withPWA({
   dest: "public",
   register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === "development",
+  disable:
+    process.env.NODE_ENV === "development" ||
+    process.env.NEXT_DISABLE_PWA === "true",
   runtimeCaching: [
     {
       urlPattern: /\/(relayers|logs|contracts)(\/.*)?$/,
@@ -39,6 +43,7 @@ const withPwaConfig = withPWA({
 });
 
 const nextConfig: NextConfig = {
+  output: isStandaloneBuild ? "standalone" : undefined,
   reactCompiler: false,
   compress: true,
   compiler: {
