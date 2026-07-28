@@ -14,6 +14,7 @@
     "analyze": "cross-env ANALYZE=true npm run build"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.5.1",
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^16.0.1",
     "@tanstack/react-query": "^5.100.5",
