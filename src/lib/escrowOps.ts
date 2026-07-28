@@ -19,7 +19,7 @@ export interface ClaimEscrowResult {
 
 async function waitForTransaction(
   server: InstanceType<
-    Awaited<typeof import('@stellar/stellar-sdk')>['SorobanRpc']['Server']
+    Awaited<typeof import("@stellar/stellar-sdk")>["rpc"]["Server"]
   >,
   hash: string,
 ): Promise<void> {
@@ -53,10 +53,9 @@ export async function claimEscrow({
   const {
     Contract,
     Networks,
-    SorobanRpc,
+    rpc,
     TransactionBuilder,
     nativeToScVal,
-    Transaction,
   } = await import('@stellar/stellar-sdk');
 
   if (!(await isConnected())) {
@@ -68,7 +67,7 @@ export async function claimEscrow({
     throw new Error('Could not retrieve public key from Freighter.');
   }
 
-  const rpcServer = new SorobanRpc.Server(SOROBAN_RPC_URL, { allowHttp: true });
+  const rpcServer = new rpc.Server(SOROBAN_RPC_URL, { allowHttp: true });
   const contract = new Contract(contractId);
   const preimageBytes = Buffer.from(preimageHex, 'hex');
 
@@ -97,7 +96,7 @@ export async function claimEscrow({
   const signedTx = TransactionBuilder.fromXDR(
     signedTxXdr,
     Networks.TESTNET,
-  ) as Transaction;
+  );
 
   const submitResponse = await rpcServer.sendTransaction(signedTx);
 
