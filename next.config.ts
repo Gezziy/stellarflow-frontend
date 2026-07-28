@@ -52,13 +52,15 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    remotePatterns: [
+      { protocol: "https", hostname: "raw.githubusercontent.com" },
+      { protocol: "https", hostname: "assets.coingecko.com" },
+      { protocol: "https", hostname: "stellar.org" },
+      { protocol: "https", hostname: "cryptologos.cc" },
+      { protocol: "https", hostname: "cdn.stellar.org" },
+    ],
   },
   experimental: {
-    // Tree-shake these packages to sub-path imports only. Covers lucide-react,
-    // react-icons, framer-motion (already present) plus the @tanstack suite.
-    // chart.js is excluded because it has a custom registration pattern that
-    // conflicts with sub-path optimisation — it is already dynamically imported
-    // inside DashboardTrafficChart and never lands in the initial bundle.
     optimizePackageImports: [
       "lucide-react",
       "react-icons",
@@ -70,8 +72,6 @@ const nextConfig: NextConfig = {
   },
   webpack(config, { isServer }) {
     if (!isServer) {
-      // Isolate heavy vendor libraries into dedicated async chunks so they are
-      // never included in the main/initial JS bundle.
       const cacheGroups =
         config.optimization?.splitChunks &&
         typeof config.optimization.splitChunks === "object"
@@ -82,9 +82,6 @@ const nextConfig: NextConfig = {
           : null;
 
       if (cacheGroups) {
-        // Leaflet + react-leaflet — map tiles are only needed on the dashboard
-        // and are already behind a dynamic import; this guarantees they are
-        // isolated even if a future static import accidentally slips in.
         cacheGroups["leaflet"] = {
           name: "vendor-leaflet",
           test: /[\\/]node_modules[\\/](leaflet|react-leaflet)[\\/]/,
@@ -93,8 +90,6 @@ const nextConfig: NextConfig = {
           priority: 30,
         };
 
-        // chart.js — registered and instantiated lazily inside an effect;
-        // this chunk will only be fetched when the chart canvas mounts.
         cacheGroups["chartjs"] = {
           name: "vendor-chartjs",
           test: /[\\/]node_modules[\\/]chart\.js[\\/]/,
@@ -103,8 +98,6 @@ const nextConfig: NextConfig = {
           priority: 30,
         };
 
-        // framer-motion — loaded lazily via MotionWrapper dynamic import;
-        // kept in its own chunk to avoid inflating the default vendor bundle.
         cacheGroups["framerMotion"] = {
           name: "vendor-framer-motion",
           test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
@@ -113,9 +106,6 @@ const nextConfig: NextConfig = {
           priority: 30,
         };
 
-        // @tanstack suite — table + query are already deferred behind dynamic
-        // imports; this ensures the chunk boundary is hard even if tree-shaking
-        // doesn't remove all references.
         cacheGroups["tanstack"] = {
           name: "vendor-tanstack",
           test: /[\\/]node_modules[\\/]@tanstack[\\/]/,
