@@ -5,6 +5,7 @@ import { WalletProvider, useWallet, useWalletStatus, useWalletActions } from '@/
 import Icon from '@/components/icons/Icon';
 import { ICON_IDS } from '@/components/icons/iconIds';
 import { ProposalList, type ProposalRecord } from '@/components/governance/ProposalList';
+import { VoteModal } from '@/components/governance/VoteModal';
 
 // --- Mock Data ---
 const MOCK_PROPOSALS: ProposalRecord[] = [
@@ -75,6 +76,7 @@ function GovernanceWalletControl() {
 
 export default function GovernancePage() {
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'archived'>('all');
+  const [voteTarget, setVoteTarget] = useState<ProposalRecord | null>(null);
 
   const TABS: { key: typeof activeTab; label: string }[] = [
     { key: 'all',      label: 'All Ballots' },
@@ -113,7 +115,27 @@ export default function GovernancePage() {
       </div>
 
       {/* Proposal List */}
-      <ProposalList proposals={MOCK_PROPOSALS} filter={activeTab} />
+      <ProposalList
+        proposals={MOCK_PROPOSALS}
+        filter={activeTab}
+        onVote={(proposal) => setVoteTarget(proposal)}
+      />
+
+      {/* Vote Confirmation Modal */}
+      <VoteModal
+        isOpen={voteTarget !== null}
+        onClose={() => setVoteTarget(null)}
+        proposalId={voteTarget?.id ?? ''}
+        proposalTitle={voteTarget?.title ?? ''}
+        totalStakingPower={2_850_000}
+        onVoteSuccess={(submission) => {
+          console.log('Vote submitted:', submission);
+          setVoteTarget(null);
+        }}
+        onVoteError={(error) => {
+          console.error('Vote failed:', error);
+        }}
+      />
 
     </div>
   );
