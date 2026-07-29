@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { useSwapExecution } from '@/hooks/useSwapExecution';
 import { formatTokenAmount } from '@/utils/formatters';
+import { PathVisualizer } from './PathVisualizer';
 
 export interface TokenOption {
   symbol: string;
@@ -256,6 +257,11 @@ export const SwapForm: React.FC<SwapFormProps> = ({ tokens, onSwapSuccess }) => 
               </span>
             </div>
           </div>
+        )}
+
+        {/* Multi-Hop Route Visualization */}
+        {isValidAmount && (
+          <PathVisualizer fromToken={fromToken} toToken={toToken} amount={fromAmount} />
         )}
 
         {/* Submit Button */}
