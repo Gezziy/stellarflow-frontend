@@ -128,3 +128,73 @@ jobs:
 
       - name: Deploy to Vercel (production)
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+# ─────────────────────────────────────────────
+# Job 4 — Post preview URL as a PR comment
+# Runs only on pull requests, after the preview deployment succeeds.
+# Uses github-script to find-or-update an existing bot comment so the
+# PR thread stays clean (no duplicate comments on re-runs).
+# ─────────────────────────────────────────────
+  comment:
+    name: Post preview URL comment
+    runs-on: ubuntu-latest
+    needs: preview
+    # Only runs when the preview job ran (i.e. on pull_request events).
+    if: github.event_name == 'pull_request'
+    # Needs write permission to create/update issue comments.
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Find existing preview comment
+        uses: actions/github-script@v7
+        id: find-comment
+        with:
+          script: |
+            const marker = '<!-- vercel-preview-comment -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+            return existing ? existing.id : null;
+
+      - name: Create or update preview URL comment
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ needs.preview.outputs.preview_url }}
+        with:
+          script: |
+            const marker = '<!-- vercel-preview-comment -->';
+            const sha     = context.payload.pull_request.head.sha.substring(0, 7);
+            const body    = [
+              marker,
+              '## 🔍 Vercel Preview Deployment',
+              '',
+              `| | |`,
+              `|---|---|`,
+              `| **Preview URL** | [${process.env.PREVIEW_URL}](${process.env.PREVIEW_URL}) |`,
+              `| **Commit** | \`${sha}\` |`,
+              `| **Status** | ✅ Ready |`,
+              '',
+              '_This comment is updated automatically on every push to this PR._',
+            ].join('\n');
+
+            const commentId = ${{ steps.find-comment.outputs.result }};
+
+            if (commentId) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: commentId,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
