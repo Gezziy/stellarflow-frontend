@@ -1,0 +1,52 @@
+name: Vercel CI — Preview & Production
+
+# ─────────────────────────────────────────────
+# Triggers
+#   • pull_request  → preview deployment
+#   • push tag v*   → production deployment
+# ─────────────────────────────────────────────
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    tags:
+      - "v*"
+
+# Cancel in-flight runs for the same PR / branch so we don't waste minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+
+# ─────────────────────────────────────────────
+# Job 1 — Quality checks (lint · typecheck · test)
+# Runs on every PR and every version tag push.
+# ─────────────────────────────────────────────
+jobs:
+  quality:
+    name: Quality checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Type-check (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm run test
