@@ -11,6 +11,8 @@ const withPwaConfig = withPWA({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  // Append Web Push handlers into the generated service worker (#599)
+  customWorkerDir: "worker",
   runtimeCaching: [
     {
       urlPattern: /\/(relayers|logs|contracts)(\/.*)?$/,

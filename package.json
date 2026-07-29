@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node scripts/test-lang-cache.js",
+    "test:push": "node --experimental-strip-types --test src/services/notifications.test.ts",
     "analyze": "cross-env ANALYZE=true npm run build"
   },
   "dependencies": {
