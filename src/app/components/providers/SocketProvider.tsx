@@ -43,9 +43,11 @@ const SocketActionsContext = createContext<SocketActionsContextType | null>(null
 // Provider
 // ---------------------------------------------------------------------------
 
+export type SocketProviderOptions = UseSocketOptions;
+
 interface SocketProviderProps {
   children: ReactNode
-  options?: UseSocketOptions
+  options?: SocketProviderOptions
 }
 
 export function SocketProvider({ children, options }: SocketProviderProps) {

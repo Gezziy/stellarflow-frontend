@@ -8,14 +8,22 @@ import React, {
 } from "react";
 import { useRAFInterval } from "@/app/hooks/useRAFInterval";
 import { useInactivityDelay } from "@/app/hooks/useInactivityDelay";
-import { Icon, ICON_IDS } from "@/components/icons";
+import Icon from "@/components/icons/Icon";
+import { ICON_IDS } from "@/components/icons/iconIds";
 import { useProgressBar } from "./TopLoadingBar";
 import { useDebounce } from "../hooks/useDebounce";
 import { useRafThrottle } from "../hooks/useRafThrottle";
 import { useErrorTimeout } from "../hooks/useErrorTimeout";
-import { useSocketConnection, useSocketData } from "./providers/SocketProvider";
-import { PriceFeedCardSkeleton, Shimmer } from "@/components/skeletons";
+import { Shimmer } from "@/components/skeletons/Shimmer";
+import { PriceFeedCardSkeleton } from "@/components/skeletons/PriceFeedCardSkeleton";
+import { getCachedHistory, getCachedHistorySync, setCachedHistory } from "../lib/historySync";
 import { useMounted } from "@/app/hooks/useMounted";
+import { usePageVisibility } from "../hooks/usePageVisibility";
+import { POLLING_INTERVALS, INACTIVITY_CONFIG } from "@/config/cacheConfig";
+import {
+  useCorridorStream,
+  useCorridorConnection,
+} from "@/context/CorridorContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,7 +37,11 @@ interface PriceFeedData {
 }
 
 interface PriceFeedCardProps {
-  /** Polling interval in milliseconds. Defaults to 30 000 (30 s). */
+  /**
+   * Polling interval in milliseconds.
+   * Defaults to 30_000 (30s), enforcing minimum 5-second thresholds.
+   * Automatically scaled by 5x multiplier when user is inactive.
+   */
   refreshInterval?: number;
   /** Asset ID for WebSocket delta updates. Defaults to 'NGN-XLM'. */
   assetId?: string;
@@ -38,8 +50,6 @@ interface PriceFeedCardProps {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-import { usePageVisibility } from "../hooks/usePageVisibility";
 
 /**
  * Fetches the NGN/XLM price feed from the StellarFlow oracle API.
@@ -106,11 +116,13 @@ function formatTime(iso: string): string {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const PriceFeedCard: React.FC<PriceFeedCardProps> = ({
-  refreshInterval = 30_000,
+  refreshInterval = POLLING_INTERVALS.MEDIUM_INTERVAL,
   enableWebSocket = true,
 }) => {
+  const [data, setData] = useState<PriceFeedData | null>(() => {
+    return getCachedHistorySync<PriceFeedData>("price-feed:ngn-xlm");
+  });
   const mounted = useMounted();
-  const [data, setData] = useState<PriceFeedData | null>(null);
   const [loading, setLoading] = useState(true);
   const { error, setError } = useErrorTimeout({ timeoutMs: 5000 });
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
@@ -120,18 +132,39 @@ const PriceFeedCard: React.FC<PriceFeedCardProps> = ({
   const throttledSetFilterInput = useRafThrottle((value: string) => setFilterInput(value));
   const { start, done } = useProgressBar();
 
-  // Granular context subscriptions — each hook only re-renders this component
-  // when its specific slice changes, not on every unrelated socket event.
-  const { isConnected, error: wsError } = useSocketConnection();
-  const { lastUpdate: wsUpdate } = useSocketData();
+  // Hydrate from IndexedDB on mount for instant startup
+  useEffect(() => {
+    getLatestPrice('NGN/XLM').then((cached) => {
+      if (cached) {
+        setData({
+          price: cached.price,
+          change_24h: 0,
+          high_24h: cached.price,
+          low_24h: cached.price,
+          volume_24h: 0,
+          last_updated: new Date(cached.timestamp).toISOString(),
+        });
+        setLoading(false);
+        setLastRefresh(new Date(cached.timestamp));
+      }
+    });
+  }, []);
+
+  // Granular corridor context subscriptions — each hook only re-renders this
+  // component when its specific slice changes. Price ticks update only the
+  // stream slice; connection changes update only the connection slice.
+  // Neither slice cascades into unrelated navigation or layout panels.
+  const { lastUpdate: wsUpdate } = useCorridorStream();
+  const { isConnected, error: wsError } = useCorridorConnection();
 
   const isPageVisible = usePageVisibility();
 
   // Adaptive poll delay — extends the polling interval when the user has been
-  // inactive for more than 3 minutes, reducing unnecessary network RPC load.
+  // inactive beyond the threshold, reducing unnecessary network RPC load.
+  // Uses centralized inactivity config to ensure consistent behavior across the app.
   const { delayMultiplier } = useInactivityDelay({
-    inactivityThreshold: 3 * 60 * 1000,
-    inactiveMultiplier: 5,
+    inactivityThreshold: INACTIVITY_CONFIG.threshold,
+    inactiveMultiplier: INACTIVITY_CONFIG.inactiveMultiplier,
   });
 
   const load = useCallback(
@@ -143,7 +176,16 @@ const PriceFeedCard: React.FC<PriceFeedCardProps> = ({
       setError(null);
 
       try {
+        const historyKey = "price-feed:ngn-xlm";
+        const cached = await getCachedHistory<PriceFeedData>(historyKey);
+        if (cached && !manual) {
+          setData(cached);
+          setLastRefresh(new Date(cached.last_updated));
+          setLoading(false);
+        }
+
         const feed = await fetchNgnXlmFeed();
+        await setCachedHistory(historyKey, feed);
         setData(feed);
         setLastRefresh(new Date());
       } catch (err) {
@@ -165,9 +207,9 @@ const PriceFeedCard: React.FC<PriceFeedCardProps> = ({
   // effect does not re-run after every state write, breaking the render cycle.
   useEffect(() => {
     if (!mounted) return;
-
     if (!wsUpdate || !enableWebSocket || !isPageVisible) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Necessary to sync WebSocket data with local state
     setData((prev: PriceFeedData | null) => ({
       price: wsUpdate.price || prev?.price || 0,
       // Reset 24 h change indicator when a fresh price arrives.
@@ -186,29 +228,27 @@ const PriceFeedCard: React.FC<PriceFeedCardProps> = ({
     setLastRefresh(new Date());
     setLoading(false);
     setError(null);
-  }, [wsUpdate, enableWebSocket, isPageVisible, mounted, setError]); // `data` intentionally omitted — accessed via functional updater
+  }, [wsUpdate, enableWebSocket, isPageVisible, setError]); // `data` intentionally omitted — accessed via functional updater
 
   // Handle WebSocket errors
   useEffect(() => {
     if (!mounted) return;
-
     if (wsError && enableWebSocket) {
       setError(`WebSocket error: ${wsError}`);
     }
-  }, [wsError, enableWebSocket, mounted, setError]);
+  }, [wsError, enableWebSocket, setError]);
 
   // Initial fetch + fallback polling (only when WebSocket is disabled or disconnected)
   const pollingActive = mounted && isPageVisible && (!enableWebSocket || !isConnected);
   useEffect(() => {
-    if (!mounted) return;
     if (!pollingActive) return;
 
-    const id = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       void load();
     }, 0);
 
-    return () => window.clearTimeout(id);
-  }, [pollingActive, load, mounted]);
+    return () => window.clearTimeout(timer);
+  }, [pollingActive, load]);
 
   // Scale the polling interval by the inactivity multiplier so that background
   // tabs AND idle sessions both reduce network RPC pressure.
@@ -345,10 +385,10 @@ const PriceFeedCard: React.FC<PriceFeedCardProps> = ({
 
       {/* ── 24h stats row ── */}
       {!loading && !error && data && (
-        <div className="relative grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-[#1B2A3B] pt-4">
+        <div className="relative grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-[#1B2A3B] pt-4 text-left">
           {/* High */}
-          <div className="min-w-0 flex flex-col gap-0.5 node-status-cell">
-            <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-600">
+          <div className="min-w-0 node-status-cell">
+            <span className="block text-[9px] font-semibold uppercase tracking-widest text-gray-600 mb-0.5">
               24h High
             </span>
             <span className="text-xs font-bold text-emerald-400 numeric-value">
@@ -357,8 +397,8 @@ const PriceFeedCard: React.FC<PriceFeedCardProps> = ({
           </div>
 
           {/* Low */}
-          <div className="flex flex-col gap-0.5 node-status-cell">
-            <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-600">
+          <div className="node-status-cell">
+            <span className="block text-[9px] font-semibold uppercase tracking-widest text-gray-600 mb-0.5">
               24h Low
             </span>
             <span className="text-xs font-bold text-rose-400 numeric-value">
@@ -367,8 +407,8 @@ const PriceFeedCard: React.FC<PriceFeedCardProps> = ({
           </div>
 
           {/* Volume */}
-          <div className="flex flex-col gap-0.5 node-status-cell">
-            <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-600">
+          <div className="node-status-cell">
+            <span className="block text-[9px] font-semibold uppercase tracking-widest text-gray-600 mb-0.5">
               Volume
             </span>
             <span className="text-xs font-bold text-gray-300 numeric-value">
@@ -379,7 +419,7 @@ const PriceFeedCard: React.FC<PriceFeedCardProps> = ({
         </div>
       )}
 
-      {/* ── Filter input (debounced 300ms) ── */}
+      {/* ── Filter input (debounced 250ms) ── */}
       <div className="relative mt-4">
         <input
           type="text"

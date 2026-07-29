@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 import { useDebounce } from '@/app/hooks/useDebounce';
 import { withShortenedAddressField } from '@/utils/addressUtils';
-import { Icon, ICON_IDS } from '@/components/icons';
+import Icon from '@/components/icons/Icon';
+import { ICON_IDS } from '@/components/icons/iconIds';
 import { ConsumerSearchInput } from '@/app/components/ConsumerSearchInput';
 import {
   ConsumerTableRow,
@@ -88,9 +89,20 @@ export default function ConsumersPage() {
     );
   }, [debouncedSearch, transformedConsumers]);
 
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
+
   const handleCopy = () => {
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
   return (

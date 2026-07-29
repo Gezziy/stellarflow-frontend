@@ -4,6 +4,14 @@ import { DeferredVotingGrid } from '@/components/voting/DeferredVotingGrid';
 import { VotingGridSkeleton } from '@/components/skeletons/VotingGridSkeleton';
 import { fetchProposalVotes } from '@/lib/api/proposals';
 
+export const revalidate = 60;
+
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  return [];
+}
+
 interface ProposalHistoryPageProps {
   params: Promise<{ id: string }>;
 }

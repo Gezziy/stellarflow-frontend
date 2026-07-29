@@ -1,10 +1,12 @@
 "use client";
 
-import React, { memo, useState, useCallback, useEffect } from "react";
+import React, { memo, useState, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Icon, ICON_IDS } from "@/components/icons";
-import type { IconId } from "@/components/icons";
+import Icon from "@/components/icons/Icon";
+import { ICON_IDS } from "@/components/icons/iconIds";
+import type { IconId } from "@/components/icons/iconIds";
 import { useMounted } from "@/app/hooks/useMounted";
 
 const navItems: { iconId: IconId; label: string; href: string }[] = [
@@ -21,6 +23,7 @@ const FloatingSidebar = memo(() => {
   const router = useRouter();
   const [active, setActive] = useState(pathname ?? "Dashboard");
   const [hovered, setHovered] = useState<string | null>(null);
+  const [hoveredRect, setHoveredRect] = useState<DOMRect | null>(null);
 
   // Sync active state with pathname after mount to avoid hydration mismatch
   useEffect(() => {
@@ -33,8 +36,13 @@ const FloatingSidebar = memo(() => {
     setActive(href);
   }, []);
 
-  const handleSetHovered = useCallback((label: string | null) => {
+  const handleSetHovered = useCallback((label: string | null, e?: React.MouseEvent | React.PointerEvent) => {
     setHovered(label);
+    if (label && e) {
+      setHoveredRect(e.currentTarget.getBoundingClientRect());
+    } else {
+      setHoveredRect(null);
+    }
   }, []);
 
   const handlePrefetch = useCallback((href: string) => {
@@ -50,14 +58,13 @@ const FloatingSidebar = memo(() => {
   if (!mounted) {
     return (
       <nav
-        className="fixed left-2 top-1/2 z-50 flex h-auto w-14 flex-col items-center justify-start gap-2 rounded-full px-2 py-4 -translate-y-1/2 md:left-4 md:top-1/2 md:w-auto md:max-w-none md:px-2 md:py-4"
+        className="fixed left-2 top-1/2 z-50 hidden md:flex h-auto w-14 flex-col items-center justify-start gap-2 rounded-full px-2 py-4 -translate-y-1/2 md:left-4 md:top-1/2 md:w-auto md:max-w-none md:px-2 md:py-4"
         style={{
-          background: "rgba(15, 23, 35, 0.8)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
+          background: "rgb(15, 23, 35)",
           border: "1px solid rgba(255,255,255,0.08)",
           boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
           willChange: "transform",
+          contain: "layout paint",
         }}
         aria-label="Primary dashboard navigation"
       >
@@ -83,14 +90,13 @@ const FloatingSidebar = memo(() => {
 
   return (
     <nav
-      className="fixed left-2 top-1/2 z-50 flex h-auto w-14 flex-col items-center justify-start gap-2 rounded-full px-2 py-4 -translate-y-1/2 md:left-4 md:top-1/2 md:w-auto md:max-w-none md:px-2 md:py-4"
+      className="fixed left-2 top-1/2 z-50 hidden md:flex h-auto w-14 flex-col items-center justify-start gap-2 rounded-full px-2 py-4 -translate-y-1/2 md:left-4 md:top-1/2 md:w-auto md:max-w-none md:px-2 md:py-4"
       style={{
-        background: "rgba(15, 23, 35, 0.8)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
+        background: "rgb(15, 23, 35)",
         border: "1px solid rgba(255,255,255,0.08)",
         boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
         willChange: "transform",
+        contain: "layout paint",
       }}
       aria-label="Primary dashboard navigation"
     >
@@ -100,7 +106,7 @@ const FloatingSidebar = memo(() => {
 
         return (
           <div key={label} className="relative flex items-center">
-            {/* Gold active indicator for desktop and mobile */}
+            {/* Gold active indicator - conditionally rendered to remove from DOM when inactive */}
             {isActive && (
               <>
                 <span
@@ -129,12 +135,12 @@ const FloatingSidebar = memo(() => {
               prefetch={false}
               onClick={() => handleSetActive(href)}
               onFocus={() => handlePrefetch(href)}
-              onMouseEnter={() => {
-                handleSetHovered(label);
+              onMouseEnter={(e) => {
+                handleSetHovered(label, e);
                 handlePrefetch(href);
               }}
-              onPointerEnter={() => handlePrefetch(href)}
-              onMouseOver={() => handlePrefetch(href)}
+              onPointerEnter={(e) => handlePrefetch(href)}
+              onMouseOver={(e) => handlePrefetch(href)}
               onMouseLeave={() => handleSetHovered(null)}
               className="relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200"
               style={{
@@ -156,19 +162,23 @@ const FloatingSidebar = memo(() => {
             </Link>
 
             {/* Tooltip */}
-            {isHovered && (
+            {isHovered && mounted && hoveredRect && createPortal(
               <span
-                className="absolute left-14 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold pointer-events-none"
+                className="fixed whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold pointer-events-none z-[100]"
                 style={{
                   background: "rgba(15,23,35,0.95)",
                   border: "1px solid rgba(245,200,66,0.3)",
                   color: "#f5c842",
                   letterSpacing: "0.04em",
                   boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                  left: hoveredRect.right + 12,
+                  top: hoveredRect.top + hoveredRect.height / 2,
+                  transform: "translateY(-50%)"
                 }}
               >
                 {label}
-              </span>
+              </span>,
+              document.body
             )}
           </div>
         );

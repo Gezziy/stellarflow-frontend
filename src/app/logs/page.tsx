@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   FileText, 
   Search, 
@@ -17,15 +17,19 @@ import {
   Cpu
 } from 'lucide-react';
 import { useRafThrottle } from '../hooks/useRafThrottle';
-import { Icon, ICON_IDS } from '@/components/icons';
+import { useMounted } from '@/app/hooks/useMounted';
+import Icon from '@/components/icons/Icon';
+import { ICON_IDS } from '@/components/icons/iconIds';
 import { useXdrWorker } from './useXdrWorker';
-import { buildHighlightedParts } from '@/utils/textUtils';
+import { buildHighlightedParts, HighlightPart } from '@/utils/textUtils';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { LogEntry, FilteredLogResult } from './types';
-import { readIndexedLogs, writeIndexedLogs } from './indexedLogStorage';
 import { LogEntry, FilteredLogResult, FuseMatch } from './types';
+const SEARCH_FIELDS: (keyof LogEntry)[] = ['message', 'actor', 'txHash'];
+
+import { LogEntry, FilteredLogResult, FuseMatch, XdrFields } from './types';
+import { readIndexedLogs, writeIndexedLogs } from './indexedLogStorage';
 
 // --- Mock Data ---
 const MOCK_LOGS: LogEntry[] = [
@@ -33,17 +37,26 @@ const MOCK_LOGS: LogEntry[] = [
   { id: '102', timestamp: '2026-04-28 12:35:12', type: 'security', severity: 'critical', message: 'Unauthorized API attempt detected from IP 192.168.1.1', actor: 'System Guard' },
   { id: '103', timestamp: '2026-04-28 12:30:45', type: 'system', severity: 'warning', message: 'Regional Failover: Switching to Frankfurt Secondary', actor: 'Network Orchestrator' },
   { id: '104', timestamp: '2026-04-28 12:20:10', type: 'transaction', severity: 'info', message: 'XDR: BBBBBEEEEEEFFFFF...', actor: 'Binance Pan-Africa', txHash: '0xdef...456' },
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<'all'|'info'|'warning'|'critical'>('all');
-  const [filteredResults, setFilteredResults] = useState<FilteredLogResult[]>(
-    MOCK_LOGS.map((l) => ({ item: l, matches: [] }))
-  );
-  const [isSearching, setIsSearching] = useState(false);
-
-  const throttledSetSearchQuery = useRafThrottle((v: string) => setSearchQuery(v));
-  const throttledSetFilter = useRafThrottle((v: string) => setFilter(v));
 ];
 
+export default function LogsPage() {
+  const [logs, setLogs] = useState<LogEntry[]>(MOCK_LOGS);
+  const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredResults, setFilteredResults] = useState<FilteredLogResult[]>(() => MOCK_LOGS.map(l => ({ item: l })));
+
+  React.useEffect(() => {
+    readIndexedLogs().then((cached) => {
+      if (cached && cached.length > 0) {
+        setLogs(cached);
+        setFilteredResults(cached.map(l => ({ item: l })));
+      }
+    });
+  }, []);
+  const [isSearching, setIsSearching] = React.useState(false);
+  const workerRef = React.useRef<Worker | null>(null);
+
+  // ── XDR Worker (off-thread base64 → binary decoding) ──────────────────
 function matchesSeverity(log: LogEntry, severity: "all" | LogEntry["severity"]) {
   return severity === "all" || log.severity === severity;
 }
@@ -82,11 +95,18 @@ function buildMatches(log: LogEntry, query: string): FuseMatch[] | undefined {
   return matches.length > 0 ? matches : undefined;
 }
 
-function mergeDecodedLogs(logs: LogEntry[], decodedMap: Map<string, XdrFields>): LogEntry[] {
+function mergeDecodedLogs(
+  logs: LogEntry[],
+  decodedMap: Map<string, XdrFields>
+): LogEntry[] {
   return logs.map((log) => {
     const decodedData = decodedMap.get(log.id);
     if (!decodedData) return log;
-    return { ...log, decodedData: decodedData };
+
+    return {
+      ...log,
+      decodedData,
+    };
   });
 }
 
@@ -162,6 +182,9 @@ export default function LogsPage() {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const { batchDecode, decoding: xdrDecoding } = useXdrWorker();
+
+  const throttledSetSearchQuery = useRafThrottle((v: string) => setSearchQuery(v));
+  const throttledSetFilter = useRafThrottle((v: "all" | LogEntry["severity"]) => setFilter(v));
 
   useEffect(() => {
     if (!mounted) return;
@@ -250,22 +273,23 @@ export default function LogsPage() {
       item: log,
       matches: buildMatches(log, normalizedQuery),
     }));
-  }, [activeLogs, filter, searchQuery]);
+  }, [logs, storageReady, filter, searchQuery]);
 
   useEffect(() => {
     if (!storageReady) return;
 
     const timer = window.setTimeout(() => {
       if (!workerRef.current) return;
+      const currentLogs = storageReady ? logs : MOCK_LOGS;
       setIsSearching(Boolean(searchQuery.trim()));
       workerRef.current.postMessage({
         type: "SEARCH",
-        payload: { query: searchQuery, logs: activeLogs },
+        payload: { query: searchQuery, logs: currentLogs },
       });
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [activeLogs, searchQuery, storageReady]);
+  }, [logs, searchQuery, storageReady]);
 
   const rowVirtualizer = useVirtualizer({
     count: filteredResults.length,
@@ -331,15 +355,24 @@ export default function LogsPage() {
 
           <button
             onClick={exportCsv}
-            className="flex items-center gap-2 rounded-lg border border-gray-700 bg-[#161b22] px-4 py-2 text-sm text-gray-300 transition-all hover:bg-gray-800"
+            className="flex items-center gap-2 rounded-lg border border-gray-700 bg-[#161b22] px-4 py-2 text-sm text-gray-300 relative overflow-hidden"
+            style={{ transition: 'transform 150ms ease, box-shadow 150ms ease' }}
           >
+            <span className="absolute inset-0 bg-gray-800 opacity-0 hover:opacity-100 transition-opacity duration-150 pointer-events-none" />
+            <span className="relative z-10 flex items-center gap-2">
             <Icon id={ICON_IDS.download} size={16} />
             Export CSV
+          </span>
           </button>
 
-          <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700">
-            <Icon id={ICON_IDS.terminal} size={16} />
-            Live Console
+          <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white relative overflow-hidden"
+            style={{ transition: 'transform 150ms ease, box-shadow 150ms ease' }}
+          >
+            <span className="absolute inset-0 bg-blue-700 opacity-0 hover:opacity-100 transition-opacity duration-150 pointer-events-none" />
+            <span className="relative z-10 flex items-center gap-2">
+              <Icon id={ICON_IDS.terminal} size={16} />
+              Live Console
+            </span>
           </button>
         </div>
       </div>
@@ -347,33 +380,26 @@ export default function LogsPage() {
       {/* --- Filter & Search Bar --- */}
       <div className="bg-[#161b22] border border-gray-800 rounded-xl p-4 mb-6 flex flex-col md:flex-row gap-4 items-center">
         <div className="relative flex-1 w-full">
-          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${isSearching ? 'text-blue-500 animate-pulse' : 'text-gray-500'}`} size={18} />
-      <input
-        type="text"
-        placeholder="Filter logs by message, actor, or hash..."
-        value={searchQuery}
-        onChange={(e) => throttledSetSearchQuery(e.target.value)}
-        className="w-full bg-[#0d1117] border border-gray-700 rounded-md py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-      />
-        </div>
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <Filter size={18} className="text-gray-500" />
-          <select
-          <Icon id={ICON_IDS.search} size={18} className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${isSearching ? 'text-blue-500 animate-pulse' : 'text-gray-500'}`} />
-          <input 
-            type="text" 
-            placeholder="Filter logs by message, actor, or hash..." 
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            className="w-full rounded-md border border-gray-700 bg-[#0d1117] py-2 pl-10 pr-4 text-sm outline-none transition-colors focus:border-blue-500"
-          />
+          <Icon id={ICON_IDS.search} size={18} className={`absolute left-3 top-1/2 -translate-y-1/2 transition-opacity duration-150 ${isSearching ? 'text-blue-500' : 'text-slate-500'}`} />
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Filter logs by message, actor, or hash..."
+              value={searchQuery}
+              onChange={(e) => throttledSetSearchQuery(e.target.value)}
+              className="w-full bg-[#0d1117] border border-gray-700 rounded-md py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-blue-500 relative z-10"
+              style={{ transition: 'border-color 150ms ease' }}
+            />
+            <span className="absolute inset-0 bg-gray-800 opacity-0 hover:opacity-100 transition-opacity duration-150 pointer-events-none rounded-md" />
+          </div>
         </div>
 
         <div className="flex w-full items-center gap-2 md:w-auto">
           <Icon id={ICON_IDS.filter} size={18} className="text-gray-500" />
           <select 
             className="bg-[#0d1117] border border-gray-700 rounded-md py-2 px-4 text-sm focus:outline-none"
-            onChange={(e) => throttledSetFilter(e.target.value as any)}
+            value={filter}
+            onChange={(e) => throttledSetFilter(e.target.value)
           >
             <option value="all">All Severities</option>
             <option value="info">Info Only</option>
@@ -398,7 +424,7 @@ export default function LogsPage() {
           )}
         </AnimatePresence>
 
-        <div className="grid grid-cols-[140px_120px_100px_1fr_150px_120px] border-b border-gray-800 bg-[#0d1117]/80 text-[10px] uppercase tracking-wider text-gray-500 backdrop-blur-md">
+        <div className="grid grid-cols-[140px_120px_100px_1fr_150px_120px] border-b border-gray-800 bg-[#0d1117] text-[10px] uppercase tracking-wider text-gray-500">
           <div className="px-6 py-4 font-medium">Timestamp</div>
           <div className="px-6 py-4 font-medium">Type</div>
           <div className="px-6 py-4 font-medium">Severity</div>
@@ -438,9 +464,10 @@ export default function LogsPage() {
                       width: "100%",
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
-                    className="grid grid-cols-[140px_120px_100px_1fr_150px_120px] items-center border-b border-gray-800/50 font-mono text-[13px] transition-colors hover:bg-[#1c2128]"
+                    className="grid grid-cols-[140px_120px_100px_1fr_150px_120px] items-center border-b border-gray-800/50 font-mono text-[13px] relative overflow-hidden"
                   >
-                    <div className="px-6 py-4 whitespace-nowrap text-gray-400">
+                    <span className="absolute inset-0 bg-[#1c2128] opacity-0 hover:opacity-100 transition-opacity duration-150 pointer-events-none" />
+                    <div className="px-6 py-4 whitespace-nowrap text-gray-400 relative z-10">
                       {log.timestamp}
                     </div>
 
@@ -519,8 +546,9 @@ export default function LogsPage() {
             <button className="rounded-md border border-gray-700 p-2 opacity-50" disabled>
               <Icon id={ICON_IDS.chevronLeft} size={16} />
             </button>
-            <button className="rounded-md border border-gray-700 p-2 transition-colors hover:bg-gray-800">
-              <Icon id={ICON_IDS.chevronRight} size={16} />
+            <button className="rounded-md border border-gray-700 p-2 relative overflow-hidden" style={{ transition: 'border-color 150ms ease' }}>
+              <span className="absolute inset-0 bg-gray-800 opacity-0 hover:opacity-100 transition-opacity duration-150 pointer-events-none" />
+              <Icon id={ICON_IDS.chevronRight} size={16} className="relative z-10" />
             </button>
           </div>
         </div>
@@ -538,6 +566,7 @@ function SearchHighlight({
 }) {
   const parts = useMemo<HighlightPart[]>(() => buildHighlightedParts(text, matches as [number, number][] | undefined), [text, matches]);
 
+  const parts = React.useMemo(() => buildHighlightedParts(text, matches), [text, matches]);
   if (!matches || matches.length === 0) {
     return <span>{text}</span>;
   }

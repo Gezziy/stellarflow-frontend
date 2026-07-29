@@ -3,8 +3,7 @@
 import React, { useEffect, useState, memo } from 'react'
 import { useSocket } from '../../hooks/useSocket'
 import { ASSET_SYMBOL_LIST } from '@/config/assetSymbols'
-
-const CHART_HISTORY_LIMIT = 150;
+import { CHART_HISTORY_LIMIT } from '../../charts/chartCalculations'
 
 interface PriceData {
   symbol: string
@@ -12,9 +11,13 @@ interface PriceData {
   timestamp: number
 }
 
-function LivePrices({ initialData }: any) {
-  const [data, setData] = useState<PriceData[]>(initialData || [])
+interface LivePricesProps {
+  initialData?: PriceData[];
+}
+
+function LivePrices({ initialData = [] }: LivePricesProps) {
   
+  const [data, setData] = useState<PriceData[]>(initialData);
   // Subscribe to multiple asset updates
   const { isConnected, lastUpdate, error } = useSocket({
     assetIds: [...ASSET_SYMBOL_LIST],

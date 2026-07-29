@@ -2,6 +2,7 @@
   "name": "stellarflow-frontend",
   "version": "0.1.0",
   "private": true,
+  "sideEffects": false,
   "scripts": {
     "dev": "next dev",
     "build": "next build && node scripts/check-bundle-size.js && node scripts/check-css-size.js",
@@ -10,10 +11,14 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node scripts/test-lang-cache.js",
-    "analyze": "cross-env ANALYZE=true npm run build"
+    "analyze": "cross-env ANALYZE=true npm run build",
+    "audit:ci": "npm audit --audit-level=high"
   },
   "dependencies": {
+    "@stellar/freighter-api": "^6.0.1",
+    "@stellar/stellar-sdk": "^16.0.1",
     "@tanstack/react-query": "^5.100.5",
+    "@tanstack/react-query-persist-client": "^5.100.5",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.24",
     "@types/leaflet": "^1.9.21",
@@ -21,6 +26,7 @@
     "chart.js": "^4.5.1",
     "framer-motion": "^12.38.0",
     "fuse.js": "^7.3.0",
+    "isomorphic-dompurify": "^3.19.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.6.0",
     "next": "16.1.6",
