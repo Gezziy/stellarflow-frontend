@@ -50,3 +50,81 @@ jobs:
 
       - name: Unit tests
         run: npm run test
+
+# ─────────────────────────────────────────────
+# Job 2 — Vercel Preview Deployment (pull requests only)
+# Deploys to a per-PR preview environment on Vercel.
+# Outputs the deployment URL for use in the comment job.
+# ─────────────────────────────────────────────
+  preview:
+    name: Vercel — Preview deployment
+    runs-on: ubuntu-latest
+    needs: quality
+    # Only run on pull-request events, not on tag pushes.
+    if: github.event_name == 'pull_request'
+    outputs:
+      preview_url: ${{ steps.deploy.outputs.preview_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment (preview)
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build project (preview)
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (preview)
+        id: deploy
+        run: |
+          PREVIEW_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "preview_url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
+
+# ─────────────────────────────────────────────
+# Job 3 — Vercel Production Deployment (version tags only)
+# Deploys to the Vercel production target when a v* tag is pushed.
+# ─────────────────────────────────────────────
+  production:
+    name: Vercel — Production deployment
+    runs-on: ubuntu-latest
+    needs: quality
+    # Only run when the trigger is a version tag, not on PRs.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment (production)
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build project (production)
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (production)
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
