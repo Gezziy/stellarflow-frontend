@@ -22,3 +22,10 @@ export {
   type TruncateAddressOptions,
   type AvatarPalette,
 } from "./AddressBadge";
+
+export {
+  ErrorBoundary,
+  DefaultErrorFallback,
+  type ErrorBoundaryProps,
+} from "./ErrorBoundary";
+

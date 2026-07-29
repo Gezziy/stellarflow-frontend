@@ -13,6 +13,7 @@ import WebSocketTest from "./components/test/WebSocketTest";
 import { CorridorProvider } from "@/context/CorridorContext";
 import { TelemetryProvider } from "@/context/TelemetryContext";
 import { ASSET_SYMBOLS } from "@/config/assetSymbols";
+import { ErrorBoundary } from "@/components/ui";
 
 const LiveNetworkMap = dynamic(() => import("@/app/components/Map"), {
   ssr: false,
@@ -278,7 +279,9 @@ export default function DashboardInteractive({
   return (
     <>
       {/* Local FX rates — static props from server, shielded by memo */}
-      <RateCardSection rateCards={rateCards} cardsReady={cardsReady} />
+      <ErrorBoundary name="FXRateCards">
+        <RateCardSection rateCards={rateCards} cardsReady={cardsReady} />
+      </ErrorBoundary>
 
       {/*
         TelemetryProvider — leaf boundary for live socket stream state.
@@ -291,24 +294,32 @@ export default function DashboardInteractive({
       >
         <CorridorProvider>
         {/* Dynamic Price Feed — NGN/XLM */}
-        <section className="min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="min-w-0 w-full max-w-full aspect-auto sm:aspect-4/3 min-h-[260px] sm:min-h-[320px] overflow-hidden">
-            <PriceFeedCard refreshInterval={30000} />
-          </div>
-        </section>
+        <ErrorBoundary name="PriceFeedCard">
+          <section className="min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="min-w-0 w-full max-w-full aspect-auto sm:aspect-4/3 min-h-[260px] sm:min-h-[320px] overflow-hidden">
+              <PriceFeedCard refreshInterval={30000} />
+            </div>
+          </section>
+        </ErrorBoundary>
 
         {/* WebSocket Test Component */}
-        <section className="flex justify-center">
-          <WebSocketTest />
-        </section>
+        <ErrorBoundary name="WebSocketTest">
+          <section className="flex justify-center">
+            <WebSocketTest />
+          </section>
+        </ErrorBoundary>
         </CorridorProvider>
       </TelemetryProvider>
 
       {/* Live Network Map — memo-gated, no socket dependency */}
-      <NetworkMapSection />
+      <ErrorBoundary name="NetworkMap">
+        <NetworkMapSection />
+      </ErrorBoundary>
 
       {/* Chart section — memo-gated, data sourced from chart worker pipeline */}
-      <TrafficChartSection />
+      <ErrorBoundary name="TrafficChart">
+        <TrafficChartSection />
+      </ErrorBoundary>
     </>
   );
 }
