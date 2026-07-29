@@ -366,6 +366,18 @@ export function useNetwork(): NetworkStateContextType {
 }
 
 /**
+ * Same slice as {@link useNetwork} but returns `null` instead of throwing when
+ * no provider is mounted above the consumer.
+ *
+ * Lets leaf components (modals, one-off widgets) pick up the selected network
+ * when it is available without forcing the provider — and its lazily-imported
+ * SDK clients — onto every page that renders them.
+ */
+export function useOptionalNetwork(): NetworkStateContextType | null {
+  return useContext(NetworkStateContext);
+}
+
+/**
  * Subscribe to switch progress (`isSwitching`) and `error`.
  * Will NOT re-render on network target or client changes.
  */
