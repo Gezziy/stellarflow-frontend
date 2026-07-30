@@ -47,7 +47,6 @@ export async function claimEscrow({
     rpc,
     TransactionBuilder,
     nativeToScVal,
-    Transaction,
   } = await import('@stellar/stellar-sdk');
 
   if (!(await isConnected())) {
@@ -88,7 +87,7 @@ export async function claimEscrow({
   const signedTx = TransactionBuilder.fromXDR(
     signedTxXdr,
     Networks.TESTNET,
-  ) as Transaction;
+  );
 
   const submitResponse = await rpcManager.execute((server) => server.sendTransaction(signedTx));
 

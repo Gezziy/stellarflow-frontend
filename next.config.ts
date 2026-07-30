@@ -7,6 +7,8 @@ const withBundleAnalyzerConfig = withBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
 
+const isStandaloneBuild = process.env.NEXT_OUTPUT_MODE === "standalone";
+
 const withPwaConfig = withPWA({
   dest: "public",
   register: true,
@@ -43,6 +45,7 @@ const withPwaConfig = withPWA({
 });
 
 const nextConfig: NextConfig = {
+  output: isStandaloneBuild ? "standalone" : undefined,
   reactCompiler: false,
   compress: true,
   async headers() {

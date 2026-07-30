@@ -91,7 +91,7 @@ export async function submitTransaction(payload: Record<string, number>): Promis
   }
 
   // Reconstruct the transaction from the signed XDR
-  const signedTx = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET) as Transaction;
+  const signedTx = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET);
 
   // Submit to the Stellar network
   const response = await server.submitTransaction(signedTx);
