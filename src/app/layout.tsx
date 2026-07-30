@@ -44,6 +44,22 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/*
+         * Flash-prevention: blocking inline script runs synchronously before
+         * any CSS/JS loads. It reads the stored theme from localStorage and,
+         * when absent, falls back to the OS colour-scheme preference.
+         * The correct "dark" or "light" class is applied to <html> before the
+         * first paint, eliminating any theme flash on hard-reload or cold start.
+         *
+         * Must be a plain <script> tag (not next/script) so it blocks parsing.
+         */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem('stellarflow-theme');var d=s==='dark'||(!s&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.classList.toggle('light',!d);}catch(e){}})();`,
+          }}
+        />
+        {/* Fallback background colour while the script above runs. */}
+        <style>{`html{background-color:#0d1117}`}</style>
         {/* Prevent background flash before next-themes hydrates */}
         <style nonce={nonce}>{`html { background-color: #0d1117; }`}</style>
         {/* Preconnect to polyfill CDN (font files are self-hosted via next/font, so no Google Fonts preconnect needed) */}
@@ -105,8 +121,9 @@ export default async function RootLayout({
         <SvgSprite />
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
-          enableSystem={false}
+          defaultTheme="system"
+          enableSystem
+          storageKey="stellarflow-theme"
           disableTransitionOnChange
         >
           <UserProvider>
