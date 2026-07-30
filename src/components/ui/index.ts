@@ -18,14 +18,10 @@ export {
   // TypeScript interfaces & types
   type AddressBadgeProps,
   type AddressBadgeSize,
+  type AddressBadgeSize,
   type JazziconAvatarProps,
   type TruncateAddressOptions,
   type AvatarPalette,
 } from "./AddressBadge";
 
-export {
-  ErrorBoundary,
-  DefaultErrorFallback,
-  type ErrorBoundaryProps,
-} from "./ErrorBoundary";
-
+export { AnimatedActionButton, PageTransition } from "./PageTransition";
