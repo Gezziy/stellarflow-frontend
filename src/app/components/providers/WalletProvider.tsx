@@ -44,9 +44,9 @@ interface WalletWindow extends Window {
   freighterApi?: FreighterExtension;
   Horizon?: FreighterExtension;
 }
-const WalletStateContext = createContext<WalletStateContextType | null>(null);
-const WalletStatusContext = createContext<WalletStatusContextType | null>(null);
-const WalletActionsContext = createContext<WalletActionsContextType | null>(null);
+export const WalletStateContext = createContext<WalletStateContextType | null>(null);
+export const WalletStatusContext = createContext<WalletStatusContextType | null>(null);
+export const WalletActionsContext = createContext<WalletActionsContextType | null>(null);
 
 const CACHE_TTL = 2500;
 let cache: { expiresAt: number; value: WalletState | null } | null = null;
