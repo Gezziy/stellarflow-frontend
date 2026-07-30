@@ -44,11 +44,8 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  const nonce = (await headers()).get("x-nonce") || undefined;
-
+}: Readonly<{ children: React.ReactNode; }>) {
+  const { HelpModal } = useShortcuts({});
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
