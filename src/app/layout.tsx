@@ -7,7 +7,7 @@ import { ProgressBarProvider } from "./components/TopLoadingBar";
 import { UserProvider } from "./components/providers/UserProvider";
 import { QueryProvider } from "./components/providers/QueryProvider";
 import { ToastProvider } from "@/components/ui/ToastQueue";
-import { InstallBanner } from "@/app/components/InstallBanner";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Script from "next/script";
 import SvgSprite from "@/components/icons/SvgSprite";
 import { headers } from "next/headers";
@@ -116,7 +116,9 @@ export default async function RootLayout({
             <QueryProvider>
               <ProgressBarProvider>
                 <ToastProvider>
-                  {children}
+                  <ErrorBoundary tags={{ section: "root" }}>
+                    {children}
+                  </ErrorBoundary>
                 </ToastProvider>
                 <InstallBanner />
               </ProgressBarProvider>
