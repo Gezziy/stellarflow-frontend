@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "node scripts/generate-pwa-icons.js && next build && node scripts/check-bundle-size.js",
     "build:analyze": "ANALYZE=true next build",
-    "build:strict": "next build && node scripts/check-bundle-size.js --strict",
+    "build:strict": "next build && node scripts/check-bundle-size.js --strict && node scripts/check-css-size.js --strict",
     "start": "next start",
     "lint": "eslint",
     "test": "node scripts/test-lang-cache.js",
