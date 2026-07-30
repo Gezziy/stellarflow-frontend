@@ -25,6 +25,7 @@ export function middleware(request: NextRequest): NextResponse {
     "https://horizon.stellar.org",
     "https://soroban-rpc.mainnet.stellar.org",
     "https://*.stellar.org",
+    "https://raw.githubusercontent.com",
     apiUrls,
     isDev ? "ws://localhost:*" : "",
     isDev ? "http://localhost:*" : "",
