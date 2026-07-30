@@ -5,7 +5,7 @@
   "sideEffects": false,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/check-bundle-size.js",
+    "build": "node scripts/generate-pwa-icons.js && next build && node scripts/check-bundle-size.js",
     "build:analyze": "ANALYZE=true next build",
     "build:strict": "next build && node scripts/check-bundle-size.js --strict",
     "start": "next start",
