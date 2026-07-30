@@ -84,6 +84,11 @@ export const ICON_IDS = {
   xCircle:    "icon-x-circle",
   minus:      "icon-minus",
 
+  // QR / Remittance
+  qrCode:     "icon-qr-code",
+  camera:     "icon-camera",
+  scan:       "icon-scan",
+
   // Navigation / topbar
   logOut:     "icon-log-out",
 } as const;
