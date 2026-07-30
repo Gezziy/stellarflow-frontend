@@ -11,7 +11,12 @@ export interface ClaimEscrowResult {
   txHash: string;
 }
 
-async function waitForTransaction(server: Awaited<ReturnType<typeof rpcManager.getServer>>, hash: string): Promise<void> {
+async function waitForTransaction(
+  server: InstanceType<
+    Awaited<typeof import('@stellar/stellar-sdk')>['rpc']['Server']
+  >,
+  hash: string,
+): Promise<void> {
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const response = await server.getTransaction(hash);
 
@@ -39,6 +44,7 @@ export async function claimEscrow({
   const {
     Contract,
     Networks,
+    rpc,
     TransactionBuilder,
     nativeToScVal,
     Transaction,
@@ -53,6 +59,7 @@ export async function claimEscrow({
     throw new Error('Could not retrieve public key from Freighter.');
   }
 
+  const rpcServer = new rpc.Server(SOROBAN_RPC_URL, { allowHttp: true });
   const contract = new Contract(contractId);
   const preimageBytes = Buffer.from(preimageHex, 'hex');
 

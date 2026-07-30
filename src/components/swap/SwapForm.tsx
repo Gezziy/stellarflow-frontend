@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useWallet } from '@/hooks/useWallet';
+import { useWallet } from '@/app/components/providers/WalletProvider';
 import { useSwapExecution } from '@/hooks/useSwapExecution';
 import { formatTokenAmount } from '@/utils/formatters';
 

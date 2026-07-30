@@ -32,6 +32,16 @@ const PriceFeedCard = dynamic(() => import("./components/PriceFeedCard"), {
   loading: () => <PriceFeedCardSkeleton />,
 });
 
+const OrderBookFeed = dynamic(() => import("./components/OrderBookFeed"), {
+  ssr: false,
+  loading: () => <PriceFeedCardSkeleton />,
+});
+
+const RpcHealthPanel = dynamic(
+  () => import("@/components/rpc/RpcHealthIndicator").then((m) => m.RpcHealthPanel),
+  { ssr: false, loading: () => <PriceFeedCardSkeleton /> },
+);
+
 const DashboardTrafficChart = dynamic(
   () => import("./components/DashboardTrafficChart"),
   {
@@ -290,10 +300,16 @@ export default function DashboardInteractive({
         options={{ assetIds: [ASSET_SYMBOLS.NGN_XLM], enableDeltaUpdates: true }}
       >
         <CorridorProvider>
-        {/* Dynamic Price Feed — NGN/XLM */}
+        {/* Dynamic Price Feed + live Order Book — NGN/XLM */}
         <section className="min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="min-w-0 w-full max-w-full aspect-auto sm:aspect-4/3 min-h-[260px] sm:min-h-[320px] overflow-hidden">
             <PriceFeedCard refreshInterval={30000} />
+          </div>
+          <div className="min-w-0 w-full max-w-full aspect-auto sm:aspect-4/3 min-h-[260px] sm:min-h-[320px] overflow-hidden">
+            <OrderBookFeed assetId={ASSET_SYMBOLS.NGN_XLM} />
+          </div>
+          <div className="min-w-0 w-full max-w-full aspect-auto sm:aspect-4/3 min-h-[260px] sm:min-h-[320px] overflow-hidden">
+            <RpcHealthPanel />
           </div>
         </section>
 
