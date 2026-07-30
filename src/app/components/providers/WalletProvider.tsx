@@ -210,6 +210,22 @@ export function useWallet(): WalletStateContextType {
   return ctx;
 }
 
+/**
+ * Same slices as {@link useWallet} / {@link useWalletActions} but returning
+ * `null` instead of throwing when no provider is mounted above the consumer.
+ *
+ * Lets globally-mounted UI (the command palette) offer wallet actions where a
+ * provider exists and degrade quietly where it does not, without forcing every
+ * page to wrap itself in a WalletProvider.
+ */
+export function useOptionalWallet(): WalletStateContextType | null {
+  return useContext(WalletStateContext);
+}
+
+export function useOptionalWalletActions(): WalletActionsContextType | null {
+  return useContext(WalletActionsContext);
+}
+
 export function useWalletStatus(): WalletStatusContextType {
   const ctx = useContext(WalletStatusContext);
   if (!ctx) {
