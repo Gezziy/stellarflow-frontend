@@ -7,7 +7,7 @@ import { ProgressBarProvider } from "./components/TopLoadingBar";
 import { UserProvider } from "./components/providers/UserProvider";
 import { QueryProvider } from "./components/providers/QueryProvider";
 import { ToastProvider } from "@/components/ui/ToastQueue";
-import { AlertBanner } from "@/components/ui/AlertBanner";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Script from "next/script";
 import SvgSprite from "@/components/icons/SvgSprite";
 import { headers } from "next/headers";
@@ -19,17 +19,28 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "StellarFlow Network",
-  description: "High performance Stellar decentralized liquidity router and swap engine",
+  title: "StellarFlow Network Dashboard",
+  description:
+    "Monitor relayers, contracts, logs, and network health in real time.",
+  manifest: "/manifest.json",
+  themeColor: "#39ff14",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "StellarFlow",
+  },
+  icons: {
+    apple: "/icon-192.svg",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default async function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  const nonce = (await headers()).get("x-nonce") || undefined;
-
+}: Readonly<{ children: React.ReactNode; }>) {
+  const { HelpModal } = useShortcuts({});
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -61,6 +72,12 @@ export default async function RootLayout({
           as="image"
           type="image/svg+xml"
           fetchPriority="low"
+        />
+        {/* PWA: apple-touch-icon for iOS home-screen bookmarks */}
+        <link
+          rel="apple-touch-icon"
+          href="/icon-192.svg"
+          sizes="192x192"
         />
         <Script
           id="polyfill-loader"
@@ -96,9 +113,11 @@ export default async function RootLayout({
             <QueryProvider>
               <ProgressBarProvider>
                 <ToastProvider>
-                  <AlertBanner />
-                  {children}
+                  <ErrorBoundary tags={{ section: "root" }}>
+                    {children}
+                  </ErrorBoundary>
                 </ToastProvider>
+                <InstallBanner />
               </ProgressBarProvider>
             </QueryProvider>
           </UserProvider>
