@@ -1,11 +1,5 @@
-/**
- * HTLC escrow contract operations.
- *
- * Stellar SDK and Freighter are lazy-loaded so they stay out of the initial bundle
- * until a user explicitly submits a claim transaction.
- */
+import { rpcManager } from '@/services/rpc';
 
-const SOROBAN_RPC_URL = 'https://soroban-testnet.stellar.org';
 const DEFAULT_FEE = '100000';
 
 export interface ClaimEscrowParams {
@@ -17,12 +11,7 @@ export interface ClaimEscrowResult {
   txHash: string;
 }
 
-async function waitForTransaction(
-  server: InstanceType<
-    Awaited<typeof import('@stellar/stellar-sdk')>['SorobanRpc']['Server']
-  >,
-  hash: string,
-): Promise<void> {
+async function waitForTransaction(server: Awaited<ReturnType<typeof rpcManager.getServer>>, hash: string): Promise<void> {
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const response = await server.getTransaction(hash);
 
@@ -40,9 +29,6 @@ async function waitForTransaction(
   throw new Error('Timed out waiting for claim transaction confirmation.');
 }
 
-/**
- * Builds, signs (via Freighter), and submits an HTLC `claim()` Soroban invocation.
- */
 export async function claimEscrow({
   contractId,
   preimageHex,
@@ -53,7 +39,6 @@ export async function claimEscrow({
   const {
     Contract,
     Networks,
-    SorobanRpc,
     TransactionBuilder,
     nativeToScVal,
     Transaction,
@@ -68,11 +53,10 @@ export async function claimEscrow({
     throw new Error('Could not retrieve public key from Freighter.');
   }
 
-  const rpcServer = new SorobanRpc.Server(SOROBAN_RPC_URL, { allowHttp: true });
   const contract = new Contract(contractId);
   const preimageBytes = Buffer.from(preimageHex, 'hex');
 
-  const sourceAccount = await rpcServer.getAccount(publicKey);
+  const sourceAccount = await rpcManager.execute((server) => server.getAccount(publicKey));
 
   const builtTx = new TransactionBuilder(sourceAccount, {
     fee: DEFAULT_FEE,
@@ -84,7 +68,7 @@ export async function claimEscrow({
     .setTimeout(180)
     .build();
 
-  const preparedTx = await rpcServer.prepareTransaction(builtTx);
+  const preparedTx = await rpcManager.execute((server) => server.prepareTransaction(builtTx));
 
   const { signedTxXdr, error } = await signTransaction(preparedTx.toXDR(), {
     networkPassphrase: Networks.TESTNET,
@@ -99,7 +83,7 @@ export async function claimEscrow({
     Networks.TESTNET,
   ) as Transaction;
 
-  const submitResponse = await rpcServer.sendTransaction(signedTx);
+  const submitResponse = await rpcManager.execute((server) => server.sendTransaction(signedTx));
 
   if (submitResponse.status === 'ERROR') {
     throw new Error(
@@ -109,6 +93,7 @@ export async function claimEscrow({
     );
   }
 
+  const rpcServer = await rpcManager.getServer();
   await waitForTransaction(rpcServer, submitResponse.hash);
 
   return { txHash: submitResponse.hash };
