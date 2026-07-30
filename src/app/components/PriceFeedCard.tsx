@@ -1,0 +1,458 @@
+"use client";
+
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  memo,
+} from "react";
+import { useRAFInterval } from "@/app/hooks/useRAFInterval";
+import { useInactivityDelay } from "@/app/hooks/useInactivityDelay";
+import Icon from "@/components/icons/Icon";
+import { ICON_IDS } from "@/components/icons/iconIds";
+import { useProgressBar } from "./TopLoadingBar";
+import { useDebounce } from "../hooks/useDebounce";
+import { useRafThrottle } from "../hooks/useRafThrottle";
+import { useErrorTimeout } from "../hooks/useErrorTimeout";
+import { Shimmer } from "@/components/skeletons/Shimmer";
+import { PriceFeedCardSkeleton } from "@/components/skeletons/PriceFeedCardSkeleton";
+import { getCachedHistory, getCachedHistorySync, setCachedHistory } from "../lib/historySync";
+import { useMounted } from "@/app/hooks/useMounted";
+import { usePageVisibility } from "../hooks/usePageVisibility";
+import { POLLING_INTERVALS, INACTIVITY_CONFIG } from "@/config/cacheConfig";
+import {
+  useCorridorStream,
+  useCorridorConnection,
+} from "@/context/CorridorContext";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface PriceFeedData {
+  price: number; // current NGN/XLM price
+  change_24h: number; // 24-hour percentage change (positive = up, negative = down)
+  high_24h: number; // 24h high
+  low_24h: number; // 24h low
+  volume_24h: number; // 24h volume in XLM
+  last_updated: string; // ISO timestamp
+}
+
+interface PriceFeedCardProps {
+  /**
+   * Polling interval in milliseconds.
+   * Defaults to 30_000 (30s), enforcing minimum 5-second thresholds.
+   * Automatically scaled by 5x multiplier when user is inactive.
+   */
+  refreshInterval?: number;
+  /** Asset ID for WebSocket delta updates. Defaults to 'NGN-XLM'. */
+  assetId?: string;
+  /** Enable WebSocket delta updates. Defaults to true. */
+  enableWebSocket?: boolean;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Fetches the NGN/XLM price feed from the StellarFlow oracle API.
+ * Adjust the endpoint URL to match your actual backend.
+ */
+async function fetchNgnXlmFeed(): Promise<PriceFeedData> {
+  const res = await fetch("/api/price-feed/ngn-xlm", {
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Price feed request failed: ${res.status} ${res.statusText}`,
+    );
+  }
+
+  const json = await res.json();
+
+  // Normalise the API response shape.
+  // The guardrail requires the Up/Down arrow to be driven by `24h_change`.
+  return {
+    price: Number(json.price ?? json.current_price ?? 0),
+    change_24h: Number(
+      json["24h_change"] ??
+        json.change_24h ??
+        json.price_change_percentage_24h ??
+        0,
+    ),
+    high_24h: Number(json["24h_high"] ?? json.high_24h ?? 0),
+    low_24h: Number(json["24h_low"] ?? json.low_24h ?? 0),
+    volume_24h: Number(json["24h_volume"] ?? json.volume_24h ?? 0),
+    last_updated: String(json.last_updated ?? new Date().toISOString()),
+  };
+}
+
+function formatPrice(value: number): string {
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  }).format(value);
+}
+
+function formatVolume(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(2)}K`;
+  return value.toFixed(2);
+}
+
+function formatTime(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-NG", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).format(new Date(iso));
+  } catch {
+    return "--:--:--";
+  }
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+const PriceFeedCard: React.FC<PriceFeedCardProps> = ({
+  refreshInterval = POLLING_INTERVALS.MEDIUM_INTERVAL,
+  enableWebSocket = true,
+}) => {
+  const [data, setData] = useState<PriceFeedData | null>(() => {
+    return getCachedHistorySync<PriceFeedData>("price-feed:ngn-xlm");
+  });
+  const mounted = useMounted();
+  const [loading, setLoading] = useState(true);
+  const { error, setError } = useErrorTimeout({ timeoutMs: 5000 });
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [filterInput, setFilterInput] = useState("");
+  const debouncedFilter = useDebounce(filterInput, 250);
+  const throttledSetFilterInput = useRafThrottle((value: string) => setFilterInput(value));
+  const { start, done } = useProgressBar();
+
+  // Hydrate from IndexedDB on mount for instant startup
+  useEffect(() => {
+    getLatestPrice('NGN/XLM').then((cached) => {
+      if (cached) {
+        setData({
+          price: cached.price,
+          change_24h: 0,
+          high_24h: cached.price,
+          low_24h: cached.price,
+          volume_24h: 0,
+          last_updated: new Date(cached.timestamp).toISOString(),
+        });
+        setLoading(false);
+        setLastRefresh(new Date(cached.timestamp));
+      }
+    });
+  }, []);
+
+  // Granular corridor context subscriptions — each hook only re-renders this
+  // component when its specific slice changes. Price ticks update only the
+  // stream slice; connection changes update only the connection slice.
+  // Neither slice cascades into unrelated navigation or layout panels.
+  const { lastUpdate: wsUpdate } = useCorridorStream();
+  const { isConnected, error: wsError } = useCorridorConnection();
+
+  const isPageVisible = usePageVisibility();
+
+  // Adaptive poll delay — extends the polling interval when the user has been
+  // inactive beyond the threshold, reducing unnecessary network RPC load.
+  // Uses centralized inactivity config to ensure consistent behavior across the app.
+  const { delayMultiplier } = useInactivityDelay({
+    inactivityThreshold: INACTIVITY_CONFIG.threshold,
+    inactiveMultiplier: INACTIVITY_CONFIG.inactiveMultiplier,
+  });
+
+  const load = useCallback(
+    async (manual = false) => {
+      if (manual) {
+        setIsRefreshing(true);
+        start();
+      }
+      setError(null);
+
+      try {
+        const historyKey = "price-feed:ngn-xlm";
+        const cached = await getCachedHistory<PriceFeedData>(historyKey);
+        if (cached && !manual) {
+          setData(cached);
+          setLastRefresh(new Date(cached.last_updated));
+          setLoading(false);
+        }
+
+        const feed = await fetchNgnXlmFeed();
+        await setCachedHistory(historyKey, feed);
+        setData(feed);
+        setLastRefresh(new Date());
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to load price feed.",
+        );
+      } finally {
+        setLoading(false);
+        setIsRefreshing(false);
+        if (manual) done();
+      }
+    },
+    [start, done, setError],
+  );
+
+  // Merge WebSocket delta updates into local state.
+  // Using a functional setData updater means we read `prev` (current state)
+  // instead of closing over `data` — so `data` is NOT a dependency and the
+  // effect does not re-run after every state write, breaking the render cycle.
+  useEffect(() => {
+    if (!mounted) return;
+    if (!wsUpdate || !enableWebSocket || !isPageVisible) return;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Necessary to sync WebSocket data with local state
+    setData((prev: PriceFeedData | null) => ({
+      price: wsUpdate.price || prev?.price || 0,
+      // Reset 24 h change indicator when a fresh price arrives.
+      change_24h: wsUpdate.price ? 0 : prev?.change_24h || 0,
+      high_24h: wsUpdate.price
+        ? Math.max(wsUpdate.price, prev?.high_24h || 0)
+        : prev?.high_24h || 0,
+      low_24h: wsUpdate.price
+        ? Math.min(wsUpdate.price, prev?.low_24h || Infinity)
+        : prev?.low_24h || 0,
+      volume_24h: prev?.volume_24h || 0, // volume comes from REST, not WS
+      last_updated: wsUpdate.timestamp
+        ? new Date(wsUpdate.timestamp).toISOString()
+        : prev?.last_updated || new Date().toISOString(),
+    }));
+    setLastRefresh(new Date());
+    setLoading(false);
+    setError(null);
+  }, [wsUpdate, enableWebSocket, isPageVisible, setError]); // `data` intentionally omitted — accessed via functional updater
+
+  // Handle WebSocket errors
+  useEffect(() => {
+    if (!mounted) return;
+    if (wsError && enableWebSocket) {
+      setError(`WebSocket error: ${wsError}`);
+    }
+  }, [wsError, enableWebSocket, setError]);
+
+  // Initial fetch + fallback polling (only when WebSocket is disabled or disconnected)
+  const pollingActive = mounted && isPageVisible && (!enableWebSocket || !isConnected);
+  useEffect(() => {
+    if (!pollingActive) return;
+
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [pollingActive, load]);
+
+  // Scale the polling interval by the inactivity multiplier so that background
+  // tabs AND idle sessions both reduce network RPC pressure.
+  const effectiveInterval = refreshInterval * delayMultiplier;
+  useRAFInterval(load, effectiveInterval, pollingActive);
+
+  // ── Guardrail: Up/Down arrow is STRICTLY driven by the 24h_change field ──
+  const isUp = data !== null && data.change_24h >= 0;
+  const changeAbs = data ? Math.abs(data.change_24h).toFixed(2) : "0.00";
+
+  // ── Colour tokens ──────────────────────────────────────────────────────────
+  const trendBg = isUp
+    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+    : "bg-rose-500/10 border-rose-500/20 text-rose-400";
+
+  const trendGlow = isUp
+    ? "shadow-[0_0_18px_rgba(52,211,153,0.18)]"
+    : "shadow-[0_0_18px_rgba(244,63,94,0.18)]";
+
+  const priceColor = isUp ? "text-emerald-400" : "text-rose-400";
+
+  if (!mounted) {
+    return <PriceFeedCardSkeleton />;
+  }
+
+  return (
+    <div
+      style={{ contain: "paint layout" }}
+      className={`
+        relative overflow-hidden max-w-full
+        h-full bg-[#0A121E] border border-[#1B2A3B] rounded-2xl p-6
+        shadow-lg hover:border-[#39FF14]/40 transition-all duration-300 group
+        ${!loading && !error ? trendGlow : ""}
+      `}
+    >
+      {/* ── Subtle radial glow in the background ── */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(57,255,20,0.04),transparent_60%)]" />
+
+      {/* ── Header row ── */}
+      <div className="relative flex items-start justify-between gap-3 mb-5">
+        <div>
+          {/* Pair label */}
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-500 group-hover:text-[#39FF14]/70 transition-colors">
+            Price Feed
+          </p>
+          <h3 className="mt-0.5 text-base font-black tracking-tight text-white">
+            NGN <span className="text-[#39FF14]">/</span> XLM
+          </h3>
+        </div>
+
+        {/* Live badge + refresh button */}
+        <div className="flex items-center gap-2">
+          <span
+            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${
+              enableWebSocket && isConnected
+                ? "border-[#39FF14]/20 bg-[#39FF14]/10 text-[#39FF14]"
+                : "border-yellow-500/20 bg-yellow-500/10 text-yellow-500"
+            }`}
+          >
+            <span className="relative flex h-1.5 w-1.5">
+              <span
+                className={`absolute inline-flex h-full w-full rounded-full ${
+                  enableWebSocket && isConnected
+                    ? "animate-ping bg-[#39FF14] opacity-60"
+                    : "bg-yellow-500 opacity-60"
+                }`}
+              />
+              <span
+                className={`relative inline-flex h-1.5 w-1.5 rounded-full ${
+                  enableWebSocket && isConnected
+                    ? "bg-[#39FF14]"
+                    : "bg-yellow-500"
+                }`}
+              />
+            </span>
+            {enableWebSocket ? (isConnected ? "WS LIVE" : "WS OFF") : "POLLING"}
+          </span>
+
+          <button
+            onClick={() => load(true)}
+            disabled={isRefreshing || loading}
+            aria-label="Refresh price feed"
+            className="flex items-center justify-center w-7 h-7 rounded-full border border-[#1B2A3B] bg-[#0A0F1E] text-gray-500 hover:text-[#39FF14] hover:border-[#39FF14]/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Icon
+              id={ICON_IDS.refreshCcw}
+              size={13}
+              className={isRefreshing ? "animate-spin" : ""}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Price + 24h change ── */}
+      {loading ? (
+        <div className="space-y-3 mb-5">
+          <Shimmer className="h-10 w-3/4" />
+          <Shimmer className="h-5 w-1/3" />
+        </div>
+      ) : error ? (
+        <div className="mb-5 rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-3">
+          <p className="text-xs font-semibold text-rose-400">
+            Feed unavailable
+          </p>
+          <p className="mt-0.5 text-[11px] text-rose-400/70 break-all">
+            {error}
+          </p>
+        </div>
+      ) : (
+        <div className="relative mb-5 stat-card-widget">
+          {/* Current price */}
+          <div
+            className={`text-4xl font-black leading-none tracking-tight numeric-value ${priceColor}`}
+          >
+            {data && formatPrice(data.price)}
+          </div>
+
+          {/* 24h change badge — arrow direction is STRICTLY from 24h_change field */}
+          <div className="mt-3 flex items-center gap-2">
+            <div
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold high-frequency-badge ${trendBg}`}
+              aria-label={`24-hour change: ${isUp ? "up" : "down"} ${changeAbs}%`}
+            >
+              {/* Arrow: ▲ when 24h_change >= 0, ▼ when 24h_change < 0 */}
+              <span aria-hidden="true">{isUp ? "▲" : "▼"}</span>
+              <span className="numeric-value">{changeAbs}%</span>
+            </div>
+            <span className="text-[10px] text-gray-600 font-medium italic">
+              24h change
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── 24h stats row ── */}
+      {!loading && !error && data && (
+        <div className="relative grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-[#1B2A3B] pt-4 text-left">
+          {/* High */}
+          <div className="min-w-0 node-status-cell">
+            <span className="block text-[9px] font-semibold uppercase tracking-widest text-gray-600 mb-0.5">
+              24h High
+            </span>
+            <span className="text-xs font-bold text-emerald-400 numeric-value">
+              {formatPrice(data.high_24h)}
+            </span>
+          </div>
+
+          {/* Low */}
+          <div className="node-status-cell">
+            <span className="block text-[9px] font-semibold uppercase tracking-widest text-gray-600 mb-0.5">
+              24h Low
+            </span>
+            <span className="text-xs font-bold text-rose-400 numeric-value">
+              {formatPrice(data.low_24h)}
+            </span>
+          </div>
+
+          {/* Volume */}
+          <div className="node-status-cell">
+            <span className="block text-[9px] font-semibold uppercase tracking-widest text-gray-600 mb-0.5">
+              Volume
+            </span>
+            <span className="text-xs font-bold text-gray-300 numeric-value">
+              {formatVolume(data.volume_24h)}{" "}
+              <span className="text-gray-600 font-medium">XLM</span>
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Filter input (debounced 250ms) ── */}
+      <div className="relative mt-4">
+        <input
+          type="text"
+          value={filterInput}
+          onChange={(e) => throttledSetFilterInput(e.target.value)}
+          placeholder="Filter pair…"
+          aria-label="Filter price feed pair"
+          className="w-full rounded-lg border border-[#1B2A3B] bg-[#0A0F1E] px-3 py-1.5 text-xs text-white/70 placeholder-gray-600 outline-none focus:border-[#39FF14]/40 focus:ring-0 transition-colors"
+        />
+        {debouncedFilter && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-[#39FF14]/60 font-mono">
+            {debouncedFilter}
+          </span>
+        )}
+      </div>
+
+      {/* ── Footer: last updated ── */}
+      <div className="relative mt-4 flex items-center justify-between">
+        <span className="text-[9px] text-gray-700 font-mono">
+          {lastRefresh ? (
+            `Updated ${formatTime(lastRefresh.toISOString())}`
+          ) : loading ? (
+            <Shimmer className="h-3 w-16 inline-block" />
+          ) : (
+            "—"
+          )}
+        </span>
+        <span className="text-[9px] text-gray-700 font-mono tracking-widest">
+          STELLARFLOW ORACLE
+        </span>
+      </div>
+    </div>
+  );
+};
+
+export default memo(PriceFeedCard);

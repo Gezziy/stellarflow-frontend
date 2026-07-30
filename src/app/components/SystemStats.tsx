@@ -1,89 +1,118 @@
-import React from "react";
-import Breadcrumb from "./Breadcrumb";
+'use client';
 
-interface StatsCardProps {
+import React from 'react';
+import { useHealthStatus } from '@/hooks/useHealthStatus';
+
+interface HealthIndicatorProps {
   label: string;
-  value: string | number;
-  showDot?: boolean;
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp?: number;
 }
 
-const StatsCard = ({ label, value, showDot = false }: StatsCardProps) => {
+function HealthIndicator({ label, status, timestamp }: HealthIndicatorProps) {
+  const statusColors: Record<string, string> = {
+    healthy: 'bg-green-500',
+    degraded: 'bg-yellow-500',
+    unhealthy: 'bg-red-500',
+  };
+
+  const color = statusColors[status] || 'bg-gray-500';
+
   return (
-    <div className="flex flex-col items-center md:items-start gap-1">
+    <div  className="flex flex-col items-center md:items-start gap-1">
       <div className="flex items-center gap-2">
-        <h3 className="text-[#CBF34D] font-bold text-sm md:text-base uppercase tracking-widest opacity-90">
+        <h3 className="text-[#39FF14] font-bold text-sm md:text-base tracking-widest">
           {label}
         </h3>
         {showDot && (
           <div className="relative flex items-center justify-center">
-            {/* Animated Glow Effect */}
-            <div className="absolute w-4 h-4 rounded-full bg-[#CBF34D] animate-ping opacity-40" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#CBF34D] shadow-[0_0_12px_#CBF34D]" />
+            <div className="absolute w-4 h-4 rounded-full bg-[#39FF14] animate-ping opacity-30" />
+            <div className="w-3 h-3 rounded-full bg-[#39FF14] shadow-[0_0_8px_3px_rgba(57,255,20,0.8)]" />
           </div>
         )}
       </div>
-      <p className="text-[#CBF34D] text-7xl md:text-9xl font-black leading-none drop-shadow-[0_0_15px_rgba(203,243,77,0.2)]">
-        {value}
-      </p>
+    <p
+  className="
+    text-[#39FF14]
+    text-7xl
+    md:text-9xl
+    font-black
+    leading-none
+    font-mono
+    tabular-nums
+    min-w-[4ch]
+    text-center
+  "
+>
+  {value}
+</p>
     </div>
   );
-};
+}
 
+/**
+ * System Stats Component
+ * Displays health status using batched health check endpoint
+ * Consolidates GlobalHealthIndicator and OracleHealthIndicator into single request
+ */
+export function SystemStats() {
+  const { health, loading, error, refetch } = useHealthStatus();
 
-
-const SystemStats = () => {
-  return (
-    <section className="w-full max-w-7xl mx-auto px-4 sm:px-6">
-      {/* Breadcrumb Navigation */}
-      <Breadcrumb />
-
-      {/* Container Label */}
-      <h2 className="text-white text-xl font-bold mb-6 tracking-tight flex items-center gap-2">
-        ORACLE STATUS
-      </h2>
-
-      {/* Main Stats Card */}
-      <div className="bg-[#0B121C]/80 backdrop-blur-md border-t-4 border-[#CBF34D] rounded-xl p-8 md:p-12 shadow-2xl relative overflow-hidden group">
-        {/* Subtle background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#CBF34D]/5 to-transparent pointer-events-none" />
-
-        {/* Global Health Badge */}
-        <div className="mb-10 inline-flex items-center gap-2 px-3 py-1 rounded-md border border-[#CBF34D]/30 bg-[#CBF34D]/10">
-          <span className="text-[#CBF34D] font-bold text-xs tracking-widest uppercase">
-            GLOBAL HEALTH: <span className="ml-1 text-white opacity-90">[ ACTIVE ]</span>
-          </span>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-4 relative z-10">
-          <StatsCard label="GLOBAL HEALTH:" value="0" showDot={true} />
-          <StatsCard label="Active Contracts" value="4" />
-          <StatsCard label="Whitelisted Relayers:" value="3" />
-        </div>
-
-        {/* NGN/XLM (24h) Analysis Row */}
-        <div className="mt-12 border-t border-zinc-800/60 w-full" />
-        
-        <div className="py-8 flex items-center justify-between">
-          <h3 className="text-[#CBF34D] font-bold text-sm md:text-base uppercase tracking-[0.25em] opacity-90">
-            NGN/XLM (24h)
-          </h3>
-          <p className="text-white/80 font-mono text-sm md:text-lg tracking-tight">
-            750.50 NGN/XLM
-          </p>
-        </div>
-
-        {/* Total Data Traffic (7d) Placeholder Row */}
-        <div className="border-t border-zinc-800/60 w-full" />
-        
-        <div className="py-8 flex items-center">
-          <h3 className="text-[#CBF34D] font-bold text-sm md:text-base uppercase tracking-[0.25em] opacity-90">
-            TOTAL DATA TRAFFIC (7d)
-          </h3>
-        </div>
+  if (loading) {
+    return (
+      <div className="space-y-2 p-4">
+        <div className="h-12 bg-gray-200 rounded animate-pulse" />
+        <div className="h-12 bg-gray-200 rounded animate-pulse" />
       </div>
-    </section>
-  );
-};
+    );
+  }
 
-export default SystemStats;
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded">
+        <p className="text-red-700 text-sm font-medium">Health check failed</p>
+        <p className="text-red-600 text-xs mt-1">{error.message}</p>
+        <button
+          onClick={refetch}
+          className="mt-2 px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!health) {
+    return <div className="text-gray-500 text-sm">No health data available</div>;
+  }
+
+  return (
+    <div className="space-y-3 p-4 bg-white border border-gray-200 rounded-lg">
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="font-semibold text-sm">System Status</h3>
+        <button
+          onClick={refetch}
+          className="text-xs px-2 py-1 text-blue-600 hover:bg-blue-50 rounded"
+        >
+          Refresh
+        </button>
+      </div>
+
+      <HealthIndicator
+        label="Global Health"
+        status={health.global.status}
+        timestamp={health.global.timestamp}
+      />
+
+      <HealthIndicator
+        label="Oracle Health"
+        status={health.oracle.status}
+        timestamp={health.oracle.timestamp}
+      />
+
+      <div className="text-xs text-gray-400 pt-2 border-t">
+        Last updated: {new Date(health.timestamp).toLocaleTimeString()}
+      </div>
+    </div>
+  );
+}
