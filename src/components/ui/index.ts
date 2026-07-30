@@ -18,7 +18,10 @@ export {
   // TypeScript interfaces & types
   type AddressBadgeProps,
   type AddressBadgeSize,
+  type AddressBadgeSize,
   type JazziconAvatarProps,
   type TruncateAddressOptions,
   type AvatarPalette,
 } from "./AddressBadge";
+
+export { AnimatedActionButton, PageTransition } from "./PageTransition";
