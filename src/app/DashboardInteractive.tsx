@@ -13,6 +13,7 @@ import WebSocketTest from "./components/test/WebSocketTest";
 import { CorridorProvider } from "@/context/CorridorContext";
 import { TelemetryProvider } from "@/context/TelemetryContext";
 import { ASSET_SYMBOLS } from "@/config/assetSymbols";
+import { ErrorBoundary } from "@/components/ui";
 
 const LiveNetworkMap = dynamic(() => import("@/app/components/Map"), {
   ssr: false,
@@ -288,7 +289,9 @@ export default function DashboardInteractive({
   return (
     <>
       {/* Local FX rates — static props from server, shielded by memo */}
-      <RateCardSection rateCards={rateCards} cardsReady={cardsReady} />
+      <ErrorBoundary name="FXRateCards">
+        <RateCardSection rateCards={rateCards} cardsReady={cardsReady} />
+      </ErrorBoundary>
 
       {/*
         TelemetryProvider — leaf boundary for live socket stream state.
@@ -314,17 +317,23 @@ export default function DashboardInteractive({
         </section>
 
         {/* WebSocket Test Component */}
-        <section className="flex justify-center">
-          <WebSocketTest />
-        </section>
+        <ErrorBoundary name="WebSocketTest">
+          <section className="flex justify-center">
+            <WebSocketTest />
+          </section>
+        </ErrorBoundary>
         </CorridorProvider>
       </TelemetryProvider>
 
       {/* Live Network Map — memo-gated, no socket dependency */}
-      <NetworkMapSection />
+      <ErrorBoundary name="NetworkMap">
+        <NetworkMapSection />
+      </ErrorBoundary>
 
       {/* Chart section — memo-gated, data sourced from chart worker pipeline */}
-      <TrafficChartSection />
+      <ErrorBoundary name="TrafficChart">
+        <TrafficChartSection />
+      </ErrorBoundary>
     </>
   );
 }
