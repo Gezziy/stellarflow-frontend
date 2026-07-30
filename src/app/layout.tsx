@@ -12,16 +12,11 @@ import Script from "next/script";
 import SvgSprite from "@/components/icons/SvgSprite";
 import { headers } from "next/headers";
 
-// subsets: ["latin"] restricts glyph maps to Latin characters only,
-// avoiding loading Cyrillic/Greek/CJK blocks and reducing CSS payload.
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-  display: "optional",
+  display: "swap",
 });
-
-// Single variable font asset covers all app text weights; monospace utilities
-// are mapped to this same face in globals.css to avoid a second font payload.
 
 export const metadata: Metadata = {
   title: "StellarFlow Network Dashboard",
@@ -56,7 +51,14 @@ export default async function RootLayout({
           rel="preconnect"
           href="https://polyfill-library.fastly.dev"
         />
-        {/* Preload the critical above-the-fold logo asset */}
+        <link
+          rel="preconnect"
+          href="https://raw.githubusercontent.com"
+        />
+        <link
+          rel="preconnect"
+          href="https://assets.coingecko.com"
+        />
         <link
           rel="preload"
           href="/sf.webp"
@@ -64,7 +66,6 @@ export default async function RootLayout({
           type="image/webp"
           fetchPriority="high"
         />
-        {/* Preload the SVG symbol sheet so icons render on first paint */}
         <link
           rel="preload"
           href="/sprite.svg"
@@ -99,9 +100,8 @@ export default async function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} antialiased`}
+        className={`${geistSans.variable} antialiased font-sans flex flex-col min-h-screen`}
       >
-        {/* Single global SVG symbol sheet — all icon <use> refs resolve here */}
         <SvgSprite />
         <ThemeProvider
           attribute="class"
