@@ -159,6 +159,7 @@ function GovernanceWalletControl() {
 export default function GovernancePage() {
   const [section, setSection] = useState<'proposals' | 'delegates'>('proposals');
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'archived'>('all');
+  const [voteTarget, setVoteTarget] = useState<ProposalRecord | null>(null);
 
   const TABS: { key: typeof activeTab; label: string }[] = [
     { key: 'all',      label: 'All Ballots' },

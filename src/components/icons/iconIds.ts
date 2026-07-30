@@ -82,6 +82,7 @@ export const ICON_IDS = {
 
   // Governance page
   xCircle:    "icon-x-circle",
+  minus:      "icon-minus",
 
   // QR / Remittance
   qrCode:     "icon-qr-code",
