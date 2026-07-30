@@ -83,6 +83,11 @@ export const ICON_IDS = {
   // Governance page
   xCircle:    "icon-x-circle",
 
+  // QR / Remittance
+  qrCode:     "icon-qr-code",
+  camera:     "icon-camera",
+  scan:       "icon-scan",
+
   // Navigation / topbar
   logOut:     "icon-log-out",
 } as const;

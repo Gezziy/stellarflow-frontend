@@ -33,6 +33,15 @@ export function useToast() {
   return context;
 }
 
+/**
+ * Same queue as {@link useToast} but returns `null` instead of throwing when no
+ * provider is mounted, for globally-mounted UI that should still work — just
+ * without notifications — outside the provider tree.
+ */
+export function useOptionalToast() {
+  return useContext(ToastContext);
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timeouts = useRef<Record<string, NodeJS.Timeout>>({});
