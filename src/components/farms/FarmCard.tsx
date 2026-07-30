@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useWallet } from '@/hooks/useWallet';
+import { useWallet } from '@/app/components/providers/WalletProvider';
 import { useHarvestRewards } from '@/hooks/useHarvestRewards';
 import { formatTokenAmount, formatCountdown } from '@/utils/formatters';
 

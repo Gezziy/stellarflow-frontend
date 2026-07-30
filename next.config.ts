@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import withPWA from "next-pwa";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const withBundleAnalyzerConfig = withBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -11,6 +12,9 @@ const withPwaConfig = withPWA({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  fallbacks: {
+    document: "/offline",
+  },
   runtimeCaching: [
     {
       urlPattern: /\/(relayers|logs|contracts)(\/.*)?$/,
@@ -41,6 +45,31 @@ const withPwaConfig = withPWA({
 const nextConfig: NextConfig = {
   reactCompiler: false,
   compress: true,
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+        ],
+      },
+    ];
+  },
   compiler: {
     removeConsole: {
       exclude: ["error", "warn"],
@@ -130,4 +159,27 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withBundleAnalyzerConfig(withPwaConfig(nextConfig));
+export default withSentryConfig(
+  withBundleAnalyzerConfig(withPwaConfig(nextConfig)),
+  {
+    // Suppresses noisy Sentry CLI output during build; source map upload
+    // still runs when SENTRY_AUTH_TOKEN is configured in CI.
+    silent: true,
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+
+    // Upload a larger set of source maps for prettier stack traces (increases
+    // build time slightly).
+    widenClientFileUpload: true,
+
+    // Route Sentry ingest requests through a same-origin path to dodge ad
+    // blockers. Adds a small amount of server load.
+    tunnelRoute: "/monitoring",
+
+    // Strip Sentry logger statements from the client bundle in production.
+    disableLogger: true,
+
+    // Auto-instrument Vercel Cron Monitors.
+    automaticVercelMonitors: true,
+  },
+);

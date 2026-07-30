@@ -28,6 +28,13 @@ const WalletConnectButton = dynamic(
   }
 );
 
+// RPC health pill polls Horizon/Soroban on an interval — keep it out of the
+// initial nav chunk and off the critical path for first contentful paint.
+const RpcHealthIndicator = dynamic(
+  () => import("@/components/rpc/RpcHealthIndicator").then((m) => m.RpcHealthIndicator),
+  { ssr: false, loading: () => null },
+);
+
 const Nav = memo(() => {
   const hasAnomaly = true;
   const router = useRouter();
@@ -60,6 +67,7 @@ const Nav = memo(() => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <RpcHealthIndicator className="hidden sm:block" />
           <WalletConnectButton />
 
           <button

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useWallet } from '@/hooks/useWallet';
+import { useWallet } from '@/app/components/providers/WalletProvider';
 import { useRemoveLiquidity } from '@/hooks/useRemoveLiquidity';
 import { formatTokenAmount } from '@/utils/formatters';
 
