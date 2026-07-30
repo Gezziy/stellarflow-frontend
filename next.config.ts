@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import withPWA from "next-pwa";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const withBundleAnalyzerConfig = withBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -12,9 +13,10 @@ const withPwaConfig = withPWA({
   dest: "public",
   register: true,
   skipWaiting: true,
-  disable:
-    process.env.NODE_ENV === "development" ||
-    process.env.NEXT_DISABLE_PWA === "true",
+  disable: process.env.NODE_ENV === "development",
+  fallbacks: {
+    document: "/offline",
+  },
   runtimeCaching: [
     {
       urlPattern: /\/(relayers|logs|contracts)(\/.*)?$/,
@@ -46,6 +48,31 @@ const nextConfig: NextConfig = {
   output: isStandaloneBuild ? "standalone" : undefined,
   reactCompiler: false,
   compress: true,
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+        ],
+      },
+    ];
+  },
   compiler: {
     removeConsole: {
       exclude: ["error", "warn"],
@@ -57,13 +84,15 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    remotePatterns: [
+      { protocol: "https", hostname: "raw.githubusercontent.com" },
+      { protocol: "https", hostname: "assets.coingecko.com" },
+      { protocol: "https", hostname: "stellar.org" },
+      { protocol: "https", hostname: "cryptologos.cc" },
+      { protocol: "https", hostname: "cdn.stellar.org" },
+    ],
   },
   experimental: {
-    // Tree-shake these packages to sub-path imports only. Covers lucide-react,
-    // react-icons, framer-motion (already present) plus the @tanstack suite.
-    // chart.js is excluded because it has a custom registration pattern that
-    // conflicts with sub-path optimisation — it is already dynamically imported
-    // inside DashboardTrafficChart and never lands in the initial bundle.
     optimizePackageImports: [
       "lucide-react",
       "react-icons",
@@ -75,8 +104,6 @@ const nextConfig: NextConfig = {
   },
   webpack(config, { isServer }) {
     if (!isServer) {
-      // Isolate heavy vendor libraries into dedicated async chunks so they are
-      // never included in the main/initial JS bundle.
       const cacheGroups =
         config.optimization?.splitChunks &&
         typeof config.optimization.splitChunks === "object"
@@ -87,9 +114,6 @@ const nextConfig: NextConfig = {
           : null;
 
       if (cacheGroups) {
-        // Leaflet + react-leaflet — map tiles are only needed on the dashboard
-        // and are already behind a dynamic import; this guarantees they are
-        // isolated even if a future static import accidentally slips in.
         cacheGroups["leaflet"] = {
           name: "vendor-leaflet",
           test: /[\\/]node_modules[\\/](leaflet|react-leaflet)[\\/]/,
@@ -98,8 +122,6 @@ const nextConfig: NextConfig = {
           priority: 30,
         };
 
-        // chart.js — registered and instantiated lazily inside an effect;
-        // this chunk will only be fetched when the chart canvas mounts.
         cacheGroups["chartjs"] = {
           name: "vendor-chartjs",
           test: /[\\/]node_modules[\\/]chart\.js[\\/]/,
@@ -108,8 +130,6 @@ const nextConfig: NextConfig = {
           priority: 30,
         };
 
-        // framer-motion — loaded lazily via MotionWrapper dynamic import;
-        // kept in its own chunk to avoid inflating the default vendor bundle.
         cacheGroups["framerMotion"] = {
           name: "vendor-framer-motion",
           test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
@@ -118,9 +138,6 @@ const nextConfig: NextConfig = {
           priority: 30,
         };
 
-        // @tanstack suite — table + query are already deferred behind dynamic
-        // imports; this ensures the chunk boundary is hard even if tree-shaking
-        // doesn't remove all references.
         cacheGroups["tanstack"] = {
           name: "vendor-tanstack",
           test: /[\\/]node_modules[\\/]@tanstack[\\/]/,
@@ -135,4 +152,27 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withBundleAnalyzerConfig(withPwaConfig(nextConfig));
+export default withSentryConfig(
+  withBundleAnalyzerConfig(withPwaConfig(nextConfig)),
+  {
+    // Suppresses noisy Sentry CLI output during build; source map upload
+    // still runs when SENTRY_AUTH_TOKEN is configured in CI.
+    silent: true,
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+
+    // Upload a larger set of source maps for prettier stack traces (increases
+    // build time slightly).
+    widenClientFileUpload: true,
+
+    // Route Sentry ingest requests through a same-origin path to dodge ad
+    // blockers. Adds a small amount of server load.
+    tunnelRoute: "/monitoring",
+
+    // Strip Sentry logger statements from the client bundle in production.
+    disableLogger: true,
+
+    // Auto-instrument Vercel Cron Monitors.
+    automaticVercelMonitors: true,
+  },
+);
