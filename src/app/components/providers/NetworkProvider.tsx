@@ -11,7 +11,7 @@
  * Slices
  * ──────
  *  • NetworkStateContext   — the selected `NetworkTarget` and memoised SDK
- *                            clients (Horizon.Server + SorobanRpc.Server).
+ *                            clients (Horizon.Server + rpc.Server).
  *  • NetworkStatusContext  — whether a client re-instantiation is in-flight
  *                            and any error string.
  *  • NetworkActionsContext — stable `switchNetwork` callback; identity never
@@ -93,7 +93,7 @@ const DEFAULT_NETWORK: NetworkTarget = "testnet";
 export interface StellarClients {
   /** `Horizon.Server` instance pointed at the active network */
   horizon: HorizonServerLike;
-  /** `SorobanRpc.Server` instance pointed at the active network */
+  /** `rpc.Server` instance pointed at the active network */
   soroban: SorobanServerLike;
   /** The `NetworkTarget` these clients belong to — for double-checking */
   network: NetworkTarget;
@@ -123,7 +123,7 @@ interface StellarSdkModule {
   Horizon: {
     Server: new (url: string) => HorizonServerLike;
   };
-  SorobanRpc: {
+  rpc: {
     Server: new (url: string, opts?: { allowHttp?: boolean }) => SorobanServerLike;
   };
 }
@@ -141,7 +141,7 @@ function buildClients(network: NetworkTarget, sdk: StellarSdkModule): StellarCli
   const cfg = NETWORK_CONFIGS[network];
   return {
     horizon: new sdk.Horizon.Server(cfg.horizonUrl),
-    soroban: new sdk.SorobanRpc.Server(cfg.sorobanRpcUrl, { allowHttp: false }),
+    soroban: new sdk.rpc.Server(cfg.sorobanRpcUrl, { allowHttp: false }),
     network,
   };
 }
