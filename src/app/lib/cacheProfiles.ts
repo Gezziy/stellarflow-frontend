@@ -10,6 +10,9 @@ export const cacheProfiles = {
 
   // Periodic audit checks that don't need constant updates
   validatorAudit: getCacheOptions('MEDIUM_INTERVAL'),
+
+  // Aggregate wallet/LP/vault balances backing the portfolio dashboard.
+  portfolioSummary: getCacheOptions('MEDIUM_INTERVAL'),
 } as const;
 
 export type CacheProfile = keyof typeof cacheProfiles;
