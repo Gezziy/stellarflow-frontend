@@ -10,6 +10,7 @@ import { ToastProvider } from "@/components/ui/ToastQueue";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Script from "next/script";
 import SvgSprite from "@/components/icons/SvgSprite";
+import { SecurityBanner } from "@/components/navigation/SecurityBanner";
 import { headers } from "next/headers";
 
 const geistSans = Geist({
@@ -119,6 +120,9 @@ export default async function RootLayout({
         className={`${geistSans.variable} antialiased font-sans flex flex-col min-h-screen`}
       >
         <SvgSprite />
+        <div className="fixed top-3 right-3 z-40">
+          <SecurityBanner />
+        </div>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
