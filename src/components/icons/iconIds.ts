@@ -79,6 +79,7 @@ export const ICON_IDS = {
   mailIcon:   "icon-mail",
   save:       "icon-save",
   rotateCcw:  "icon-rotate-ccw",
+  volume2:    "icon-volume-2",
 
   // Governance page
   xCircle:    "icon-x-circle",
