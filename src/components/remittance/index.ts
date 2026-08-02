@@ -9,3 +9,7 @@ export {
   type FiatOnRampResult,
   type OnRampProvider,
 } from "./FiatOnRampModal";
+export {
+  BeneficiaryForm,
+  type BeneficiaryFormProps,
+} from "./BeneficiaryForm";
