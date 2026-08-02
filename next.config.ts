@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { execSync } from "child_process";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import withPWA from "next-pwa";
 import { withSentryConfig } from "@sentry/nextjs";
@@ -8,6 +9,16 @@ const withBundleAnalyzerConfig = withBundleAnalyzer({
 });
 
 const isStandaloneBuild = process.env.NEXT_OUTPUT_MODE === "standalone";
+
+/** Vercel populates this automatically; fall back to the local git HEAD for other hosts/dev. */
+function resolveCommitSha(): string {
+  if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7);
+  try {
+    return execSync("git rev-parse --short HEAD").toString().trim();
+  } catch {
+    return "dev";
+  }
+}
 
 const withPwaConfig = withPWA({
   dest: "public",
@@ -45,6 +56,9 @@ const withPwaConfig = withPWA({
 });
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_COMMIT_SHA: resolveCommitSha(),
+  },
   output: isStandaloneBuild ? "standalone" : undefined,
   reactCompiler: false,
   compress: true,
