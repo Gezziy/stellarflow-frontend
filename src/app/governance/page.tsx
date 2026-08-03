@@ -6,6 +6,7 @@ import Icon from '@/components/icons/Icon';
 import { ICON_IDS } from '@/components/icons/iconIds';
 import { ProposalList, type ProposalRecord } from '@/components/governance/ProposalList';
 import { DelegateDirectory } from '@/components/governance/DelegateDirectory';
+import ProposalCreationModal, { type ProposalSubmission } from '@/components/governance/ProposalCreationModal';
 import type { Delegate } from '@/types/delegation';
 
 // --- Mock Data ---
@@ -98,7 +99,11 @@ const MOCK_DELEGATES: Delegate[] = [
   },
 ];
 
-const GovernanceWalletControlContent = React.memo(function GovernanceWalletControlContent() {
+const GovernanceWalletControlContent = React.memo(function GovernanceWalletControlContent({
+  onCreateProposal,
+}: {
+  onCreateProposal: () => void;
+}) {
   const { wallet } = useWallet();
   const { isChecking } = useWalletStatus();
   const { refreshWalletState } = useWalletActions();
@@ -129,7 +134,9 @@ const GovernanceWalletControlContent = React.memo(function GovernanceWalletContr
               {wallet?.connected ? walletStatus : 'Connect Freighter Wallet'}
             </span>
           </button>
-        <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium relative overflow-hidden"
+        <button
+          onClick={onCreateProposal}
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium relative overflow-hidden"
           style={{ transition: 'transform 150ms ease, box-shadow 150ms ease' }}
         >
           <span className="absolute inset-0 bg-blue-700 opacity-0 transition-opacity duration-150 pointer-events-none" />
@@ -148,10 +155,14 @@ const GovernanceWalletControlContent = React.memo(function GovernanceWalletContr
   );
 });
 
-function GovernanceWalletControl() {
+function GovernanceWalletControl({
+  onCreateProposal,
+}: {
+  onCreateProposal: () => void;
+}) {
   return (
     <WalletProvider>
-      <GovernanceWalletControlContent />
+      <GovernanceWalletControlContent onCreateProposal={onCreateProposal} />
     </WalletProvider>
   );
 }
@@ -160,6 +171,10 @@ export default function GovernancePage() {
   const [section, setSection] = useState<'proposals' | 'delegates'>('proposals');
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'archived'>('all');
   const [voteTarget, setVoteTarget] = useState<ProposalRecord | null>(null);
+  const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
+  const [proposals, setProposals] = useState<ProposalRecord[]>(MOCK_PROPOSALS);
+  const [walletBalance, setWalletBalance] = useState(120000);
+  const minimumThreshold = 250000;
 
   const TABS: { key: typeof activeTab; label: string }[] = [
     { key: 'all',      label: 'All Ballots' },
@@ -172,11 +187,29 @@ export default function GovernancePage() {
     { key: 'delegates', label: 'Delegates', icon: 'users' },
   ];
 
+  const handleProposalSubmit = (proposal: ProposalSubmission) => {
+    const nextProposal: ProposalRecord = {
+      id: `SFP-${Date.now().toString().slice(-3)}`,
+      title: proposal.title,
+      description: proposal.description,
+      proposer: 'Connected Wallet',
+      status: 'Active',
+      votesFor: 0,
+      votesAgainst: 0,
+      quorumThreshold: 60,
+      endsInLedgers: 1440,
+    };
+
+    setProposals((current) => [nextProposal, ...current]);
+    setWalletBalance((current) => Math.max(0, current - 1000));
+    setIsProposalModalOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-gray-100 p-8">
 
       {/* Header */}
-      <GovernanceWalletControl />
+      <GovernanceWalletControl onCreateProposal={() => setIsProposalModalOpen(true)} />
 
       {/* Stats — context-aware based on section */}
       {section === 'proposals' ? (
@@ -240,12 +273,20 @@ export default function GovernancePage() {
           </div>
 
           {/* Proposal List */}
-          <ProposalList proposals={MOCK_PROPOSALS} filter={activeTab} />
+          <ProposalList proposals={proposals} filter={activeTab} />
         </>
       ) : (
         /* Delegate Directory */
         <DelegateDirectory delegates={MOCK_DELEGATES} />
       )}
+
+      <ProposalCreationModal
+        isOpen={isProposalModalOpen}
+        onClose={() => setIsProposalModalOpen(false)}
+        onSubmit={handleProposalSubmit}
+        walletBalance={walletBalance}
+        minimumThreshold={minimumThreshold}
+      />
 
     </div>
   );
