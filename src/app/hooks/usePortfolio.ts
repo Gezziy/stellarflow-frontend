@@ -1,6 +1,7 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { getCacheProfile } from "../lib/cacheProfiles";
 import type {
+  PerAssetBreakdown,
   PortfolioHistoryPoint,
   PortfolioSummaryData,
   PortfolioTimeframe,
@@ -38,6 +39,65 @@ function getMockData(): PortfolioSummaryData {
   const vaultsUsd = 3105.5;
   const totalNetWorthUsd = walletUsd + liquidityPoolsUsd + vaultsUsd;
 
+  // ── Per-asset protocol-lock breakdown (#762) ─────────────────────────────
+  const breakdownByAsset: PerAssetBreakdown[] = [
+    {
+      symbol: "XLM",
+      name: "Stellar Lumens",
+      totalUsd: 5680.4,
+      breakdown: {
+        availableUsd: 2100.0,
+        limitOrdersUsd: 980.4,
+        vaultsUsd: 1250.0,
+        liquidityPoolsUsd: 1350.0,
+      },
+    },
+    {
+      symbol: "USDC",
+      name: "USD Coin",
+      totalUsd: 2739.91,
+      breakdown: {
+        availableUsd: 1020.0,
+        limitOrdersUsd: 419.91,
+        vaultsUsd: 800.0,
+        liquidityPoolsUsd: 500.0,
+      },
+    },
+    {
+      symbol: "NGNC",
+      name: "Nigerian Naira Coin",
+      totalUsd: 1290.27,
+      breakdown: {
+        availableUsd: 340.0,
+        limitOrdersUsd: 150.27,
+        vaultsUsd: 400.0,
+        liquidityPoolsUsd: 400.0,
+      },
+    },
+    {
+      symbol: "GHSC",
+      name: "Ghanaian Cedi Stable",
+      totalUsd: 826.23,
+      breakdown: {
+        availableUsd: 300.0,
+        limitOrdersUsd: 126.23,
+        vaultsUsd: 200.0,
+        liquidityPoolsUsd: 200.0,
+      },
+    },
+    {
+      symbol: "KESC",
+      name: "Kenyan Shilling Coin",
+      totalUsd: 600.0,
+      breakdown: {
+        availableUsd: 200.0,
+        limitOrdersUsd: 100.0,
+        vaultsUsd: 155.5,
+        liquidityPoolsUsd: 144.5,
+      },
+    },
+  ];
+
   return {
     totalNetWorthUsd,
     changePercent24h: 2.37,
@@ -56,6 +116,7 @@ function getMockData(): PortfolioSummaryData {
       "90D": buildHistory(90, totalNetWorthUsd * 0.61, totalNetWorthUsd),
       "1Y": buildHistory(365, totalNetWorthUsd * 0.35, totalNetWorthUsd),
     },
+    breakdownByAsset,
   };
 }
 
