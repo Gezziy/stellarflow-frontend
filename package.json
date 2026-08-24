@@ -2,6 +2,9 @@
   "name": "stellarflow-frontend",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
   "sideEffects": false,
   "scripts": {
     "dev": "next dev",
@@ -55,7 +58,7 @@
     "@storybook/nextjs": "^10.5.5",
     "@storybook/react": "^10.5.5",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
