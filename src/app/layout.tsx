@@ -12,6 +12,7 @@ import Script from "next/script";
 import SvgSprite from "@/components/icons/SvgSprite";
 import { SecurityBanner } from "@/components/navigation/SecurityBanner";
 import { headers } from "next/headers";
+import { AccessibilityProvider } from "@/context/AccessibilityContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -130,18 +131,20 @@ export default async function RootLayout({
           storageKey="stellarflow-theme"
           disableTransitionOnChange
         >
-          <UserProvider>
-            <QueryProvider>
-              <ProgressBarProvider>
-                <ToastProvider>
-                  <ErrorBoundary tags={{ section: "root" }}>
-                    {children}
-                  </ErrorBoundary>
-                </ToastProvider>
-                <InstallBanner />
-              </ProgressBarProvider>
-            </QueryProvider>
-          </UserProvider>
+          <AccessibilityProvider>
+            <UserProvider>
+              <QueryProvider>
+                <ProgressBarProvider>
+                  <ToastProvider>
+                    <ErrorBoundary tags={{ section: "root" }}>
+                      {children}
+                    </ErrorBoundary>
+                  </ToastProvider>
+                  <InstallBanner />
+                </ProgressBarProvider>
+              </QueryProvider>
+            </UserProvider>
+          </AccessibilityProvider>
         </ThemeProvider>
       </body>
     </html>
