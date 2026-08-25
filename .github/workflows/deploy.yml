@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "24"
 
 # ─────────────────────────────────────────────
 # Job 1 — Quality checks (lint · typecheck · test)

@@ -12,7 +12,7 @@ StellarFlow Frontend is a cutting-edge **Next.js 15** application that provides 
 
 ## 🛠️ Quick Start
 ### Prerequisites
-- [cite_start]**Node.js** v18+ [cite: 83]
+- [cite_start]**Node.js** v24+ [cite: 83]
 - [cite_start]**Stellar Wallet** (Albedo recommended) [cite: 760]
 
 # FIGMA LINK

@@ -1,9 +1,20 @@
 "use client";
 
-import { PieChart, Wallet, Droplets, Vault } from "lucide-react";
+/**
+ * PortfolioSummary — Dashboard portfolio tracker section.
+ *
+ * Updated for #762: renders the granular wallet-balance breakdown panel and
+ * the per-asset stacked bar chart below the existing net-worth cards.
+ */
+
+import { PieChart, Wallet, Droplets, Vault, BarChart2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback } from "react";
 import { usePortfolioWithFallback } from "@/app/hooks/usePortfolio";
 import PortfolioAllocationChart from "./PortfolioAllocationChart";
 import PortfolioHistoryChart from "./PortfolioHistoryChart";
+import WalletBalanceBreakdown from "./WalletBalanceBreakdown";
+import AssetBreakdownStackedBar from "./AssetBreakdownStackedBar";
 
 function formatUsd(value: number): string {
   return value.toLocaleString(undefined, {
@@ -15,11 +26,26 @@ function formatUsd(value: number): string {
 
 export default function PortfolioSummary() {
   const { data, isLoading, isFetching } = usePortfolioWithFallback();
-  const { totalNetWorthUsd, changePercent24h, balances, allocation, history } = data;
+  const {
+    totalNetWorthUsd,
+    changePercent24h,
+    balances,
+    allocation,
+    history,
+    breakdownByAsset,
+  } = data;
   const isPositive24h = changePercent24h >= 0;
+  const router = useRouter();
+
+  // Quick-action navigation callbacks
+  const goToWallet = useCallback(() => router.push("/dashboard/portfolio"), [router]);
+  const goToOrders = useCallback(() => router.push("/dashboard/transactions"), [router]);
+  const goToVaults = useCallback(() => router.push("/staking"), [router]);
+  const goToPools = useCallback(() => router.push("/pools"), [router]);
 
   return (
     <div className="space-y-6">
+      {/* ── Net worth header ─────────────────────────────────────────────── */}
       <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -68,6 +94,7 @@ export default function PortfolioSummary() {
         </div>
       </div>
 
+      {/* ── History + Allocation ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5 xl:col-span-2">
           <h2 className="mb-4 text-lg font-semibold text-neutral-200">
@@ -79,11 +106,37 @@ export default function PortfolioSummary() {
         <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
           <div className="mb-4 flex items-center gap-2">
             <PieChart size={16} className="text-neutral-400" />
-            <h2 className="text-lg font-semibold text-neutral-200">Allocation</h2>
+            <h2 className="text-lg font-semibold text-neutral-200">
+              Allocation
+            </h2>
           </div>
           <PortfolioAllocationChart allocation={allocation} />
         </div>
       </div>
+
+      {/* ── Granular balance breakdown by protocol-lock category (#762) ───── */}
+      {breakdownByAsset.length > 0 && (
+        <>
+          <WalletBalanceBreakdown
+            breakdownByAsset={breakdownByAsset}
+            onManageAvailable={goToWallet}
+            onManageLimitOrders={goToOrders}
+            onManageVaults={goToVaults}
+            onManagePools={goToPools}
+          />
+
+          <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <BarChart2 size={16} className="text-neutral-400" />
+              <h2 className="text-lg font-semibold text-neutral-200">
+                Asset Distribution by Lock Type
+              </h2>
+              <p className="ml-auto text-xs text-neutral-500">USD value</p>
+            </div>
+            <AssetBreakdownStackedBar breakdownByAsset={breakdownByAsset} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
