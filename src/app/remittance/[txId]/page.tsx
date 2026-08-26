@@ -19,6 +19,7 @@ import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StatusStepper } from "@/components/remittance/StatusStepper";
+import { RemittanceHistoryModal } from "@/components/remittance/RemittanceHistoryModal";
 import {
   useRemittanceStatus,
   RemittanceStatus,
@@ -204,6 +205,8 @@ function PageShell({
   txId: string;
   children: React.ReactNode;
 }) {
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
   return (
     <main className="min-h-screen bg-[#080d12] px-4 py-8 md:px-8 lg:px-12">
       {/* Breadcrumb nav */}
@@ -267,11 +270,25 @@ function PageShell({
             Stellar Expert Explorer
           </a>
           <span aria-hidden>·</span>
+          <button
+            type="button"
+            onClick={() => setIsHistoryOpen(true)}
+            className="inline-flex items-center gap-1 transition-colors hover:text-gray-400"
+          >
+            <Icon id={ICON_IDS.fileText} size={11} />
+            Remittance History &amp; Receipts
+          </button>
+          <span aria-hidden>·</span>
           <Link href="/" className="transition-colors hover:text-gray-400">
             Back to Dashboard
           </Link>
         </div>
       </div>
+
+      <RemittanceHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+      />
     </main>
   );
 }
