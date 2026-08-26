@@ -8,6 +8,9 @@ import type { RpcHealthStatus } from '@/hooks/useRpcHealth';
 import { NETWORK_CONFIGS, useOptionalNetwork } from '@/app/components/providers/NetworkProvider';
 import { WebSocketManager } from '@/utils/WebSocketManager';
 import { clear } from '@/utils/storage';
+import { BENEFICIARIES_STORAGE_KEY } from '@/lib/beneficiaries';
+import { queryClient } from '@/app/lib/queryClient';
+import { localStoragePersister } from '@/app/lib/persister';
 import { COMMIT_SHA } from '@/config/env';
 import packageJson from '../../../package.json';
 
@@ -30,6 +33,32 @@ interface WsState {
   url: string;
   lastEvent: string | null;
 }
+
+type CleanupOption = 'balances' | 'settings' | 'addressBook' | 'fullPurge';
+type CleanupSelection = Record<CleanupOption, boolean>;
+
+const INITIAL_CLEANUP_SELECTION: CleanupSelection = {
+  balances: false,
+  settings: false,
+  addressBook: false,
+  fullPurge: false,
+};
+
+const SETTINGS_STORAGE_KEYS = [
+  'stellarflow-theme',
+  'stellarflow.network',
+  'sf_audio_enabled',
+  'sf.push.preferences.v1',
+  'sf.push.subscription.v1',
+  'stellarflow:slippage-tolerance',
+];
+
+const CLEANUP_OPTIONS: Array<{ id: CleanupOption; label: string; description: string }> = [
+  { id: 'balances', label: 'Clear Cached Balances', description: 'Remove persisted RPC and query cache data.' },
+  { id: 'settings', label: 'Reset Settings', description: 'Restore local theme, network, audio, notification, and swap preferences.' },
+  { id: 'addressBook', label: 'Clear Address Book', description: 'Remove saved contacts and remittance beneficiaries.' },
+  { id: 'fullPurge', label: 'Full Purge', description: 'Remove all local and session browser state.' },
+];
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -117,6 +146,8 @@ export default function DiagnosticsDashboard() {
   // Storage
   const [storageEntries, setStorageEntries] = useState<StorageEntry[]>(readStorageEntries);
   const refreshStorage = useCallback(() => setStorageEntries(readStorageEntries()), []);
+  const [cleanupSelection, setCleanupSelection] = useState<CleanupSelection>(INITIAL_CLEANUP_SELECTION);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
 
   // WebSocket — reflects the real connection state of the app's shared
   // WebSocketManager singleton (the same socket used for price/orderbook
@@ -144,9 +175,38 @@ export default function DiagnosticsDashboard() {
     };
   }, []);
 
-  function handleClearCache() {
-    clear();
+  function toggleCleanupOption(option: CleanupOption) {
+    setCleanupSelection((selection) => ({ ...selection, [option]: !selection[option] }));
+  }
+
+  function executeCleanup() {
+    if (cleanupSelection.fullPurge) {
+      clear();
+      window.sessionStorage.clear();
+    } else {
+      if (cleanupSelection.balances) {
+        localStoragePersister.removeClient();
+        queryClient.clear();
+      }
+      if (cleanupSelection.settings) {
+        SETTINGS_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
+      }
+      if (cleanupSelection.addressBook) {
+        window.localStorage.removeItem('stellarflow-contacts');
+        window.localStorage.removeItem(BENEFICIARIES_STORAGE_KEY);
+      }
+    }
+
+    setConfirmationOpen(false);
     window.location.reload();
+  }
+
+  function requestCleanup() {
+    if (cleanupSelection.fullPurge) {
+      setConfirmationOpen(true);
+      return;
+    }
+    executeCleanup();
   }
 
   const overallBadge = statusBadge(overallStatus);
@@ -294,24 +354,79 @@ export default function DiagnosticsDashboard() {
             label="Danger Zone"
             color="text-red-400"
           />
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-lg border border-red-900/50 bg-red-900/10">
-            <div>
-              <p className="text-sm font-medium text-gray-100">Clear App Cache &amp; Reset State</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Wipes all localStorage entries and reloads the page. This cannot be undone.
-              </p>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-400">
+              Select the local state to remove. The application reloads after cleanup.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {CLEANUP_OPTIONS.map((option) => (
+                <label
+                  key={option.id}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
+                    cleanupSelection[option.id]
+                      ? 'border-red-700 bg-red-900/20'
+                      : 'border-gray-800 bg-[#0d1117] hover:border-gray-700'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={cleanupSelection[option.id]}
+                    onChange={() => toggleCleanupOption(option.id)}
+                    className="mt-1 h-4 w-4 accent-red-600"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-gray-100">{option.label}</span>
+                    <span className="mt-1 block text-xs text-gray-500">{option.description}</span>
+                  </span>
+                </label>
+              ))}
             </div>
-            <button
-              onClick={handleClearCache}
-              className="flex items-center gap-2 bg-red-700 hover:bg-red-600 active:bg-red-800 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors whitespace-nowrap"
-            >
-              <Icon id={ICON_IDS.zap} size={16} />
-              Clear &amp; Reload
-            </button>
+            <div className="flex justify-end">
+              <button
+                onClick={requestCleanup}
+                disabled={!Object.values(cleanupSelection).some(Boolean)}
+                className="flex items-center gap-2 rounded-lg bg-red-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600 active:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Icon id={ICON_IDS.zap} size={16} />
+                Clear Selected &amp; Reload
+              </button>
+            </div>
           </div>
         </SectionCard>
 
       </div>
+
+      {confirmationOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="presentation">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="full-purge-title"
+            className="w-full max-w-md rounded-xl border border-red-800 bg-[#161b22] p-6 shadow-2xl"
+          >
+            <h2 id="full-purge-title" className="text-lg font-semibold text-red-300">Confirm Full Purge</h2>
+            <p className="mt-3 text-sm leading-6 text-gray-300">
+              This removes all local and session browser state, including saved preferences and cached data. This action cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmationOpen(false)}
+                className="rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:border-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeCleanup}
+                className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
+              >
+                Confirm Full Purge
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
