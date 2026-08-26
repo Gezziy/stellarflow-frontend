@@ -24,3 +24,9 @@ export {
 } from "./AddressBadge";
 
 export { AnimatedActionButton, PageTransition } from "./PageTransition";
+
+export {
+  ErrorBoundary,
+  DefaultErrorFallback,
+  type ErrorBoundaryProps,
+} from "./ErrorBoundary";

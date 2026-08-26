@@ -13,3 +13,8 @@ export {
   BeneficiaryForm,
   type BeneficiaryFormProps,
 } from "./BeneficiaryForm";
+export { ReceiptModal, type ReceiptData } from "./ReceiptModal";
+export {
+  RemittanceHistoryModal,
+  type RemittanceHistoryModalProps,
+} from "./RemittanceHistoryModal";
