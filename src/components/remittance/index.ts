@@ -18,3 +18,12 @@ export {
   RemittanceHistoryModal,
   type RemittanceHistoryModalProps,
 } from "./RemittanceHistoryModal";
+export { default as FxRateTicker, type FxRateTickerProps } from "./FxRateTicker";
+export {
+  default as FxComparisonTable,
+  type FxComparisonTableProps,
+} from "./FxComparisonTable";
+export {
+  default as RateLockCountdown,
+  type RateLockCountdownProps,
+} from "./RateLockCountdown";
