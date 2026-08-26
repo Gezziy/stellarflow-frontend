@@ -8,6 +8,7 @@ import { useRafThrottle } from '../hooks/useRafThrottle';
 import { openPushPreferencesModal } from '@/components/notifications';
 import { loadPreferences } from '@/services/notifications';
 import { useTransactionAudio } from '@/hooks/useTransactionAudio';
+import { useScreenLock, ScreenLockModal } from '@/components/security/ScreenLockModal';
 
 interface Settings {
   emailReports: boolean;
@@ -30,7 +31,9 @@ const TOGGLE_STYLES = {
 
 export default function SettingsPage() {
   const [showKey, setShowKey] = useState(false);
+  const [screenLockModalOpen, setScreenLockModalOpen] = useState(false);
   const { isEnabled: soundEffectsEnabled, toggle: toggleSoundEffects } = useTransactionAudio();
+  const { isPinSet, isLocked, idleTimeoutMinutes, lockNow } = useScreenLock();
   const [settings, setSettings] = useState<Settings>({
     emailReports: true,
     pushNotifications: false,
@@ -173,6 +176,44 @@ export default function SettingsPage() {
 
         <section className="bg-[#161b22] border border-gray-800 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
+            <Icon id={ICON_IDS.lock} size={20} className="text-blue-400" />
+            Master Passcode Lock
+          </h2>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">
+                {isPinSet ? `Enabled · auto-locks after ${idleTimeoutMinutes}m idle` : 'Disabled'}
+              </p>
+              <p className="text-xs text-gray-500 mt-1 max-w-md">
+                Opt-in local screen lock. Blurs the dashboard and requires a PIN after a period
+                of inactivity. The PIN is kept only in memory for this tab — never persisted or
+                sent over the network.
+              </p>
+            </div>
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setScreenLockModalOpen(true)}
+                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                {isPinSet ? 'Manage' : 'Set Up'}
+              </button>
+              {isPinSet && (
+                <button
+                  type="button"
+                  onClick={lockNow}
+                  disabled={isLocked}
+                  className="text-xs text-gray-400 hover:text-gray-200 disabled:opacity-40 transition-colors"
+                >
+                  Lock now
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-[#161b22] border border-gray-800 rounded-xl p-6">
+          <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
             <Icon id={ICON_IDS.shield} size={20} className="text-green-400" />
             Governance Security
           </h2>
@@ -226,6 +267,10 @@ export default function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {screenLockModalOpen && (
+        <ScreenLockModal isOpen={screenLockModalOpen} onClose={() => setScreenLockModalOpen(false)} />
+      )}
     </div>
   );
 }

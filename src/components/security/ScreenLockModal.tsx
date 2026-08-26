@@ -29,11 +29,51 @@ interface ScreenLockContextType {
   /** Immediately activates the lock overlay, regardless of the idle timer. */
   lockNow: () => void;
   /** Returns true and unlocks the session if `pin` matches the stored PIN. */
-  unlock: (pin: string) => boolean;
-  /** Stores a new in-memory session PIN and arms the idle timer. */
-  setPin: (pin: string, length: PinLength) => void;
+  unlock: (pin: string) => Promise<boolean>;
+  /** Stores a new in-memory session PIN (hashed, never kept in plaintext) and arms the idle timer. */
+  setPin: (pin: string, length: PinLength) => Promise<void>;
   /** Removes the session PIN and disables the screen lock entirely. */
   clearPin: () => void;
+}
+
+/**
+ * Salted digest of an entered PIN, held in place of the plaintext value.
+ * The salt is regenerated every time a PIN is (re)configured, so the digest
+ * for the same PIN differs across sessions.
+ */
+interface PinDigest {
+  hash: string;
+  salt: string;
+}
+
+function randomSalt(): string {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  // Non-crypto fallback (older environments without Web Crypto) — still
+  // avoids a fixed salt across sessions.
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+/**
+ * One-way digest of `pin` salted with `salt`. Prefers SubtleCrypto
+ * (SHA-256); falls back to a simple non-cryptographic mix so the PIN is
+ * still never retained as plaintext in memory if SubtleCrypto is
+ * unavailable (e.g. a non-secure context).
+ */
+async function digestPin(pin: string, salt: string): Promise<string> {
+  const input = `${salt}:${pin}`;
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const bytes = new TextEncoder().encode(input);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (Math.imul(31, hash) + input.charCodeAt(i)) | 0;
+  }
+  return hash.toString(16);
 }
 
 const ScreenLockContext = createContext<ScreenLockContextType | null>(null);
@@ -61,8 +101,9 @@ export function ScreenLockProvider({
   defaultIdleTimeoutMinutes = 5,
 }: ScreenLockProviderProps) {
   // In-memory only — intentionally not state, so it never round-trips
-  // through serialization or persistence layers.
-  const pinRef = useRef<string | null>(null);
+  // through serialization or persistence layers. Holds a salted digest of
+  // the PIN, never the plaintext value.
+  const pinRef = useRef<PinDigest | null>(null);
   const [isPinSet, setIsPinSet] = useState(false);
   const [pinLength, setPinLength] = useState<PinLength>(4);
   const [isLocked, setIsLocked] = useState(false);
@@ -94,8 +135,10 @@ export function ScreenLockProvider({
   }, [clearIdleTimer]);
 
   const setPin = useCallback(
-    (pin: string, length: PinLength) => {
-      pinRef.current = pin;
+    async (pin: string, length: PinLength) => {
+      const salt = randomSalt();
+      const hash = await digestPin(pin, salt);
+      pinRef.current = { hash, salt };
       setPinLength(length);
       setIsPinSet(true);
       setIsLocked(false);
@@ -111,8 +154,11 @@ export function ScreenLockProvider({
     clearIdleTimer();
   }, [clearIdleTimer]);
 
-  const unlock = useCallback((pin: string) => {
-    if (pinRef.current !== null && pin === pinRef.current) {
+  const unlock = useCallback(async (pin: string) => {
+    const stored = pinRef.current;
+    if (!stored) return false;
+    const candidate = await digestPin(pin, stored.salt);
+    if (candidate === stored.hash) {
       setIsLocked(false);
       return true;
     }
@@ -290,13 +336,14 @@ export function ScreenLockModal({ isOpen = false, onClose }: ScreenLockModalProp
       setEntry(next);
 
       if (next.length === pinLength) {
-        const success = unlock(next);
-        if (!success) {
-          setError('Incorrect PIN. Try again.');
-          setShake(true);
-          setTimeout(() => setShake(false), 400);
-          setEntry('');
-        }
+        void unlock(next).then((success) => {
+          if (!success) {
+            setError('Incorrect PIN. Try again.');
+            setShake(true);
+            setTimeout(() => setShake(false), 400);
+            setEntry('');
+          }
+        });
       }
     },
     [entry, pinLength, unlock],
@@ -319,7 +366,7 @@ export function ScreenLockModal({ isOpen = false, onClose }: ScreenLockModalProp
 
       if (manageStep === 'confirm-pin') {
         if (next === firstEntry) {
-          setPin(next, newLength);
+          void setPin(next, newLength);
           setEntry('');
           setManageStep('manage');
         } else {
