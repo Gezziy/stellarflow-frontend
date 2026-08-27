@@ -15,6 +15,7 @@ import { InstallBanner } from "./components/InstallBanner";
 import { SwUpdateBanner } from "@/components/pwa/SwUpdateBanner";
 import { ScreenLockProvider } from "@/components/security/ScreenLockModal";
 import { headers } from "next/headers";
+import { AccessibilityProvider } from "@/context/AccessibilityContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
