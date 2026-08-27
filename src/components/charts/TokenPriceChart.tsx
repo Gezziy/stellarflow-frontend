@@ -75,7 +75,7 @@ export const TokenPriceChart: React.FC<TokenPriceChartProps> = ({
       },
     });
 
-    const candlestickSeries = chart.addSeries('Candlestick' as any, {
+const candlestickSeries = chart.addSeries({ type: 'Candlestick' } as any, {
       upColor: '#10B981',
       downColor: '#EF4444',
       borderVisible: false,
