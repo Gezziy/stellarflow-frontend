@@ -35,6 +35,41 @@
   --muted: rgba(255, 255, 255, 0.45);
 }
 
+/* WCAG AAA-oriented option: normal text is pure white on black, with yellow
+   reserved for emphasis and focus so contrast does not depend on hue. */
+.high-contrast {
+  --background: #000000;
+  --foreground: #ffffff;
+  --surface: #000000;
+  --surface-raised: #1a1a1a;
+  --border: #ffffff;
+  --muted: #ffffff;
+}
+
+.high-contrast body {
+  background: #000000;
+  color: #ffffff;
+}
+
+.high-contrast a,
+.high-contrast button,
+.high-contrast input,
+.high-contrast select,
+.high-contrast textarea,
+.high-contrast [tabindex]:not([tabindex="-1"]) {
+  border-color: #ffffff;
+}
+
+/* Keep keyboard focus visible even when a component supplies its own styles. */
+:where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 3px solid #ffff00;
+  outline-offset: 3px;
+}
+
+.high-contrast :where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline-color: #ffff00;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

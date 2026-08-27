@@ -26,6 +26,35 @@ export interface SlippageValidationResult {
   error: string | null;
 }
 
+/** Returns the signed percentage movement from the quoted rate to execution. */
+export function calculatePriceShiftPercent(
+  initialRate: number,
+  currentRate: number,
+): number {
+  if (!Number.isFinite(initialRate) || initialRate <= 0) {
+    throw new RangeError("initialRate must be a positive number.");
+  }
+
+  if (!Number.isFinite(currentRate) || currentRate <= 0) {
+    throw new RangeError("currentRate must be a positive number.");
+  }
+
+  return ((currentRate - initialRate) / initialRate) * 100;
+}
+
+/** A swap is unsafe only when the receive rate falls beyond the tolerance. */
+export function isPriceShiftOutsideSlippage(
+  priceShiftPercent: number,
+  slippagePercent: number,
+): boolean {
+  const { valid } = validateSlippagePercent(slippagePercent);
+  if (!valid || !Number.isFinite(priceShiftPercent)) {
+    throw new RangeError("Invalid price shift or slippage percent.");
+  }
+
+  return priceShiftPercent < -slippagePercent;
+}
+
 /**
  * Validates a user-supplied slippage percentage. Values must be a positive
  * number no greater than `MAX_SLIPPAGE_PERCENT`; anything past

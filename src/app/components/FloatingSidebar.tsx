@@ -15,6 +15,7 @@ const navItems: { iconId: IconId; label: string; href: string }[] = [
   { iconId: ICON_IDS.database,        label: "Contracts",  href: "/contracts" },
   { iconId: ICON_IDS.lineChart,       label: "Analytics",  href: "/analytics" },
   { iconId: ICON_IDS.globe,           label: "Governance", href: "/governance" },
+  { iconId: ICON_IDS.shieldCheck,     label: "Multi-signature", href: "/multisig" },
   { iconId: ICON_IDS.settings,        label: "Settings",   href: "/settings" },
 ];
 

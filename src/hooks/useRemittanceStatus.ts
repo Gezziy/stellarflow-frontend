@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRAFInterval } from "@/app/hooks/useRAFInterval";
 import { usePageVisibility } from "@/app/hooks/usePageVisibility";
+import { useOnlineStatus } from "@/app/hooks/useOnlineStatus";
 import { useErrorTimeout } from "@/app/hooks/useErrorTimeout";
 
 // ---------------------------------------------------------------------------
@@ -165,6 +166,7 @@ export function useRemittanceStatus(
   const pollCountRef = useRef(0);
   const isMountedRef = useRef(true);
   const isVisible = usePageVisibility();
+  const isOnline = useOnlineStatus();
 
   // Memoised flag: should we stop?
   const isTerminal =
@@ -185,7 +187,7 @@ export function useRemittanceStatus(
   // HTTP polling
   // ------------------------------------------------------------------
   const doPoll = useCallback(async () => {
-    if (!txId || wsHealthyRef.current || isTerminal) return;
+    if (!txId || !isOnline || wsHealthyRef.current || isTerminal) return;
     if (pollCountRef.current >= maxPollAttempts) {
       setIsPolling(false);
       setError(`Status check timed out after ${maxPollAttempts} attempts.`);
@@ -210,11 +212,11 @@ export function useRemittanceStatus(
       const msg = err instanceof Error ? err.message : "Failed to fetch status";
       setError(msg);
     }
-  }, [txId, isTerminal, maxPollAttempts, applyUpdate, setError]);
+  }, [txId, isOnline, isTerminal, maxPollAttempts, applyUpdate, setError]);
 
   // The RAF interval drives polling while visible and WS is unhealthy.
   const shouldPoll = Boolean(
-    txId && !wsOnly && !wsHealthyRef.current && !isTerminal && isVisible,
+    txId && isOnline && !wsOnly && !wsHealthyRef.current && !isTerminal && isVisible,
   );
 
   // Expose polling state reactively.

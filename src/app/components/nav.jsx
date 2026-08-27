@@ -9,6 +9,8 @@ import { ICON_IDS } from "@/components/icons/iconIds";
 import { useProgressBar } from "./TopLoadingBar";
 import dynamic from "next/dynamic";
 import MobileMenu from "@/components/navigation/MobileMenu";
+import { AccessibilityToggle } from "@/components/ui/AccessibilityToggle";
+import { PrivacyToggle } from "@/components/privacy";
 
 // Lazily load the wallet connect button + WalletProvider.
 // WalletProvider pulls in the entire wallet context + @stellar/freighter-api
@@ -69,6 +71,8 @@ const Nav = memo(() => {
         <div className="flex flex-wrap items-center gap-2">
           <RpcHealthIndicator className="hidden sm:block" />
           <WalletConnectButton />
+          <AccessibilityToggle />
+          <PrivacyToggle />
 
           <button
             aria-label="System anomaly alerts"

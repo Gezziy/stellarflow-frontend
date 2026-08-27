@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRAFInterval } from "@/app/hooks/useRAFInterval";
+import { useOnlineStatus } from "@/app/hooks/useOnlineStatus";
 import {
   STUCK_THRESHOLD_MS,
   fetchLedgerTxStatus,
@@ -70,6 +71,7 @@ export function usePendingTransaction({
   stuckThresholdMs = STUCK_THRESHOLD_MS,
 }: UsePendingTransactionOptions): PendingTransactionState {
   const isTracking = Boolean(enabled && hash && submittedAt);
+  const isOnline = useOnlineStatus();
 
   const [resolution, setResolution] = useState<
     TaggedOutcome<LedgerTxStatus> | null
@@ -96,7 +98,7 @@ export function usePendingTransaction({
 
   // Poll Horizon until the transaction resolves one way or the other.
   useEffect(() => {
-    if (!isUnresolved || !hash) return;
+    if (!isUnresolved || !hash || !isOnline) return;
 
     let cancelled = false;
 
@@ -127,7 +129,7 @@ export function usePendingTransaction({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [isUnresolved, hash, horizonUrl, pollIntervalMs, pollNonce]);
+  }, [isUnresolved, hash, horizonUrl, isOnline, pollIntervalMs, pollNonce]);
 
   const refresh = useCallback(() => setPollNonce((n) => n + 1), []);
 
