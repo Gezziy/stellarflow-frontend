@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { WalletProvider, useWallet, useWalletStatus, useWalletActions } from '@/app/hooks/useWalletState';
 import Icon from '@/components/icons/Icon';
 import { ICON_IDS } from '@/components/icons/iconIds';
-import { ProposalList, type ProposalRecord } from '@/components/governance/ProposalList';
+import { ProposalList, type ProposalRecord, type ProposalStatus } from '@/components/governance/ProposalList';
 import { DelegateDirectory } from '@/components/governance/DelegateDirectory';
 import ProposalCreationModal, { type ProposalSubmission } from '@/components/governance/ProposalCreationModal';
 import type { Delegate } from '@/types/delegation';
@@ -169,7 +169,7 @@ function GovernanceWalletControl({
 
 export default function GovernancePage() {
   const [section, setSection] = useState<'proposals' | 'delegates'>('proposals');
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'archived'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | ProposalStatus>('all');
   const [voteTarget, setVoteTarget] = useState<ProposalRecord | null>(null);
   const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
   const [proposals, setProposals] = useState<ProposalRecord[]>(MOCK_PROPOSALS);
@@ -178,8 +178,10 @@ export default function GovernancePage() {
 
   const TABS: { key: typeof activeTab; label: string }[] = [
     { key: 'all',      label: 'All Ballots' },
-    { key: 'active',   label: 'Active' },
-    { key: 'archived', label: 'Archived' },
+    { key: 'Active',   label: 'Active' },
+    { key: 'Passed',   label: 'Passed' },
+    { key: 'Rejected', label: 'Rejected' },
+    { key: 'Executed', label: 'Executed' },
   ];
 
   const SECTION_SWITCHER: { key: typeof section; label: string; icon: keyof typeof ICON_IDS }[] = [

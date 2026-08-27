@@ -12,9 +12,10 @@ import Script from "next/script";
 import SvgSprite from "@/components/icons/SvgSprite";
 import { SecurityBanner } from "@/components/navigation/SecurityBanner";
 import { InstallBanner } from "./components/InstallBanner";
+import { SwUpdateBanner } from "@/components/pwa/SwUpdateBanner";
 import { ScreenLockProvider } from "@/components/security/ScreenLockModal";
 import { headers } from "next/headers";
-import { OfflineBanner } from "./components/OfflineBanner";
+import { AccessibilityProvider } from "@/context/AccessibilityContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -137,12 +138,13 @@ export default async function RootLayout({
           <UserProvider>
             <QueryProvider>
               <ProgressBarProvider>
-                <ToastProvider>
-                  <ErrorBoundary tags={{ section: "root" }}>
-                    <ScreenLockProvider>{children}</ScreenLockProvider>
-                  </ErrorBoundary>
-                </ToastProvider>
-                <InstallBanner />
+                  <ToastProvider>
+                    <ErrorBoundary tags={{ section: "root" }}>
+                      <ScreenLockProvider>{children}</ScreenLockProvider>
+                    </ErrorBoundary>
+                  </ToastProvider>
+                  <SwUpdateBanner />
+                  <InstallBanner />
               </ProgressBarProvider>
             </QueryProvider>
           </UserProvider>
