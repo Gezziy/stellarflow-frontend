@@ -21,16 +21,6 @@ async function prepareForSnapshot(page: Page) {
   // Freeze CSS animations/transitions so timing differences between runs
   // don't produce false-positive pixel diffs.
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.addStyleTag({
-    content: `
-      *, *::before, *::after {
-        animation-duration: 0s !important;
-        animation-delay: 0s !important;
-        transition-duration: 0s !important;
-        transition-delay: 0s !important;
-      }
-    `,
-  });
 }
 
 test.describe('Visual regression — landing page (Issue #603)', () => {
