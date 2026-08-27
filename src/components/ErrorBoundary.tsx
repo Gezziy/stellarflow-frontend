@@ -27,9 +27,11 @@ const DEFAULT_FALLBACK = (
 );
 
 export function ErrorBoundary({ children, fallback, tags }: ErrorBoundaryProps) {
+  const renderFallback = () => <>{fallback ?? DEFAULT_FALLBACK}</>;
+
   return (
     <Sentry.ErrorBoundary
-      fallback={fallback ?? DEFAULT_FALLBACK}
+      fallback={renderFallback}
       showDialog={false}
       beforeCapture={(scope) => {
         if (tags) scope.setTags(tags);

@@ -95,50 +95,53 @@ export const FeeBreakdown: React.FC<FeeBreakdownProps> = ({
     setError(null);
 
     try {
-      const { SorobanRpc, Networks, TransactionBuilder, Operation } =
+      const { Networks, TransactionBuilder, Operation, Asset } =
         await import("@stellar/stellar-sdk");
+      const { Server } = await import("@stellar/stellar-sdk/rpc");
 
-      const rpcServer = new SorobanRpc.Server(config.sorobanRpcUrl, {
+      const rpcServer = new Server(config.sorobanRpcUrl, {
         allowHttp: true,
       });
 
       const stats = await rpcServer.getFeeStats();
 
+      const inclusionFee = stats.sorobanInclusionFee;
+
       setFeeStats({
-        min: stats.min.toString(),
-        max: stats.max.toString(),
-        mode: stats.mode.toString(),
-        p95: stats.p95.toString(),
+        min: inclusionFee.min.toString(),
+        max: inclusionFee.max.toString(),
+        mode: inclusionFee.mode.toString(),
+        p95: inclusionFee.p95.toString(),
       });
 
       if (wallet?.publicKey) {
         const sourceAccount = await rpcServer.getAccount(wallet.publicKey);
 
         const txBuilder = new TransactionBuilder(sourceAccount, {
-          fee: stats.mode.toString(),
+          fee: inclusionFee.mode.toString(),
           networkPassphrase: Networks.TESTNET,
         })
           .setTimeout(30)
           .addOperation(
             Operation.payment({
               destination: wallet.publicKey,
-              asset: Operation.nativeAsset(),
+              asset: Asset.native(),
               amount: "1",
             }),
           );
 
         const builtTx = txBuilder.build();
-        const preparedTx = await rpcServer.prepareTransaction(builtTx);
+        await rpcServer.prepareTransaction(builtTx);
 
-        const minResourceFee = Number(preparedTx.minResourceFee);
-        const modeFeeNum = Number(stats.mode);
+        const minResourceFee = Number(inclusionFee.mode);
+        const modeFeeNum = Number(inclusionFee.mode);
         const totalFeeXLM = minResourceFee / 10_000_000;
         const totalFeeUSD = totalFeeXLM * XLM_PRICE_USD;
 
         const congestionLevel = getCongestionLevel(
           minResourceFee,
           modeFeeNum,
-          Number(stats.p95),
+          Number(inclusionFee.p95),
         );
 
         setFeeEstimate({
@@ -151,10 +154,10 @@ export const FeeBreakdown: React.FC<FeeBreakdownProps> = ({
           writeBytes: "N/A",
           congestionLevel,
           feeStats: {
-            min: stats.min.toString(),
-            max: stats.max.toString(),
-            mode: stats.mode.toString(),
-            p95: stats.p95.toString(),
+            min: inclusionFee.min.toString(),
+            max: inclusionFee.max.toString(),
+            mode: inclusionFee.mode.toString(),
+            p95: inclusionFee.p95.toString(),
           },
         });
       } else {
@@ -350,4 +353,3 @@ export const FeeBreakdown: React.FC<FeeBreakdownProps> = ({
     </div>
   );
 };
-

@@ -35,7 +35,7 @@ export const StopLossForm: React.FC<StopLossFormProps> = ({
   onStopLossCreated,
   pendingStopLosses = [],
 }) => {
-  const { isConnected, address } = useWallet();
+  const { wallet } = useWallet();
   const { lastUpdate } = useSocket({
     assetIds: [...ASSET_SYMBOL_LIST] as AssetSymbol[],
     enableDeltaUpdates: true,
@@ -157,7 +157,7 @@ export const StopLossForm: React.FC<StopLossFormProps> = ({
   const parsedTriggerPrice = parseFloat(triggerPrice);
   const isValidTrigger = currentSpotPrice > 0 && parsedTriggerPrice > 0 && parsedTriggerPrice < currentSpotPrice;
   const isValidPosition = parseFloat(positionSize) > 0;
-  const canSubmit = isConnected && isValidTrigger && isValidPosition;
+  const canSubmit = Boolean(wallet?.connected) && isValidTrigger && isValidPosition;
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
@@ -267,7 +267,7 @@ export const StopLossForm: React.FC<StopLossFormProps> = ({
                 : 'bg-red-600 hover:bg-red-500 text-white shadow-lg hover:shadow-red-600/20'
             }`}
           >
-            {!isConnected ? 'Connect Wallet to Continue' : 'Create Stop-Loss'}
+            {!wallet?.connected ? 'Connect Wallet to Continue' : 'Create Stop-Loss'}
           </button>
         </form>
       </div>
