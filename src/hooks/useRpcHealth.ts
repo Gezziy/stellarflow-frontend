@@ -16,6 +16,7 @@ import {
   NETWORK_CONFIGS,
   type NetworkTarget,
 } from "@/app/components/providers/NetworkProvider";
+import { useOnlineStatus } from "@/app/hooks/useOnlineStatus";
 
 export type RpcHealthStatus = "healthy" | "degraded" | "unhealthy" | "checking";
 
@@ -111,6 +112,7 @@ export function useRpcHealth(options: UseRpcHealthOptions = {}): UseRpcHealthRet
   } = options;
 
   const config = NETWORK_CONFIGS[network];
+  const isOnline = useOnlineStatus();
 
   const [horizon, setHorizon] = useState<RpcEndpointHealth>(() =>
     idleEndpoint("Horizon", config.horizonUrl),
@@ -188,10 +190,12 @@ export function useRpcHealth(options: UseRpcHealthOptions = {}): UseRpcHealthRet
   }, [network, timeoutMs, degradedThresholdMs]);
 
   useEffect(() => {
+    if (!isOnline) return;
+
     void checkAll();
     const id = setInterval(() => void checkAll(), pollIntervalMs);
     return () => clearInterval(id);
-  }, [checkAll, pollIntervalMs]);
+  }, [checkAll, isOnline, pollIntervalMs]);
 
   const overallStatus: RpcHealthStatus =
     horizon.status === "unhealthy" || soroban.status === "unhealthy"

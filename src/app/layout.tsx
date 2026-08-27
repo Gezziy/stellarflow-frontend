@@ -123,6 +123,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} antialiased font-sans flex flex-col min-h-screen`}
       >
+        <OfflineBanner />
         <SvgSprite />
         <div className="fixed top-3 right-3 z-40">
           <SecurityBanner />
