@@ -95,8 +95,10 @@ export const FeeBreakdown: React.FC<FeeBreakdownProps> = ({
     setError(null);
 
     try {
-      const { SorobanRpc, Networks, TransactionBuilder, Operation } =
+      const { Networks, TransactionBuilder, Operation } =
         (await import("@stellar/stellar-sdk")) as any;
+      const { Server } = await import("@stellar/stellar-sdk/rpc");
+      const { Asset } = await import("@stellar/stellar-sdk");
 
       const rpcServer = new Server(config.sorobanRpcUrl, {
         allowHttp: true,

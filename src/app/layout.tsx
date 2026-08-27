@@ -13,7 +13,6 @@ import { SecurityBanner } from "@/components/navigation/SecurityBanner";
 import { InstallBanner } from "./components/InstallBanner";
 import { OfflineBanner } from "./components/OfflineBanner";
 import { SwUpdateBanner } from "@/components/pwa/SwUpdateBanner";
-import { OfflineBanner } from "./components/OfflineBanner";
 import { ScreenLockProvider } from "@/components/security/ScreenLockModal";
 import { headers } from "next/headers";
 import { AccessibilityProvider } from "@/context/AccessibilityContext";
