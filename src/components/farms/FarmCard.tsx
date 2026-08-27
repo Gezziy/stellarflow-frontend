@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useWallet } from '@/app/components/providers/WalletProvider';
+import { useWallet, useWalletActions } from '@/app/components/providers/WalletProvider';
 import { useHarvestRewards } from '@/hooks/useHarvestRewards';
 import { formatTokenAmount, formatCountdown } from '@/utils/formatters';
 
@@ -20,7 +20,9 @@ interface FarmCardProps {
 }
 
 export const FarmCard: React.FC<FarmCardProps> = ({ farm, onRefresh }) => {
-  const { isConnected, connectWallet } = useWallet();
+  const { wallet } = useWallet();
+  const { refreshWalletState } = useWalletActions();
+  const isConnected = wallet?.connected || false;
   const { harvestRewards, isHarvesting } = useHarvestRewards();
   
   const [timeLeft, setTimeLeft] = useState<number>(0);
@@ -46,7 +48,7 @@ export const FarmCard: React.FC<FarmCardProps> = ({ farm, onRefresh }) => {
 
   const handleHarvest = async () => {
     if (!isConnected) {
-      await connectWallet();
+      await refreshWalletState();
       return;
     }
     

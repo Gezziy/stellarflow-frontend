@@ -7,7 +7,7 @@ import React, {
   useRef,
   useEffect,
 } from "react";
-import Fuse from "fuse.js";
+import Fuse, { IFuseOptions } from "fuse.js";
 import DOMPurify from "isomorphic-dompurify";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { useIsHydrated } from "@/app/hooks/useIsHydrated";
@@ -63,7 +63,7 @@ const TAG_COLOR_MAP: Record<string, string> = {
 // Fuse.js search options
 // ─────────────────────────────────────────────────────────────────────────────
 
-const FUSE_OPTIONS: Fuse.IFuseOptions<Delegate> = {
+const FUSE_OPTIONS: IFuseOptions<Delegate> = {
   keys: [
     { name: "name", weight: 0.4 },
     { name: "address", weight: 0.25 },

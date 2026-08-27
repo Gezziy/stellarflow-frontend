@@ -35,7 +35,9 @@ export const StopLossForm: React.FC<StopLossFormProps> = ({
   onStopLossCreated,
   pendingStopLosses = [],
 }) => {
-  const { isConnected, address } = useWallet();
+  const { wallet } = useWallet();
+  const isConnected = wallet?.connected || false;
+  const address = wallet?.publicKey || '';
   const { lastUpdate } = useSocket({
     assetIds: [...ASSET_SYMBOL_LIST] as AssetSymbol[],
     enableDeltaUpdates: true,
