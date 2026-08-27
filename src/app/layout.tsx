@@ -11,6 +11,9 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Script from "next/script";
 import SvgSprite from "@/components/icons/SvgSprite";
 import { SecurityBanner } from "@/components/navigation/SecurityBanner";
+import { InstallBanner } from "./components/InstallBanner";
+import { SwUpdateBanner } from "@/components/pwa/SwUpdateBanner";
+import { ScreenLockProvider } from "@/components/security/ScreenLockModal";
 import { headers } from "next/headers";
 import { AccessibilityProvider } from "@/context/AccessibilityContext";
 
@@ -42,7 +45,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode; }>) {
-  const { HelpModal } = useShortcuts({});
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -131,20 +134,19 @@ export default async function RootLayout({
           storageKey="stellarflow-theme"
           disableTransitionOnChange
         >
-          <AccessibilityProvider>
-            <UserProvider>
-              <QueryProvider>
-                <ProgressBarProvider>
+          <UserProvider>
+            <QueryProvider>
+              <ProgressBarProvider>
                   <ToastProvider>
                     <ErrorBoundary tags={{ section: "root" }}>
-                      {children}
+                      <ScreenLockProvider>{children}</ScreenLockProvider>
                     </ErrorBoundary>
                   </ToastProvider>
+                  <SwUpdateBanner />
                   <InstallBanner />
-                </ProgressBarProvider>
-              </QueryProvider>
-            </UserProvider>
-          </AccessibilityProvider>
+              </ProgressBarProvider>
+            </QueryProvider>
+          </UserProvider>
         </ThemeProvider>
       </body>
     </html>

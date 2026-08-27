@@ -134,7 +134,7 @@ export function ChartSkeleton() {
             <Skeleton 
               key={i} 
               className="w-full rounded-t-sm opacity-60 dark:opacity-40" 
-              style={{ height: \`\${heights[i]}%\` }} 
+              style={{ height: `${heights[i]}%` }}
             />
           );
         })}

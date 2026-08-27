@@ -1,6 +1,7 @@
 "use client";
 
 import TransactionHistoryTable from "@/components/transactions/TransactionHistoryTable";
+import { PendingTransactionsPanel } from "@/components/transactions/PendingTransactionsPanel";
 
 export default function TransactionHistoryPage() {
   return (
@@ -15,6 +16,7 @@ export default function TransactionHistoryPage() {
         </p>
       </div>
 
+      <PendingTransactionsPanel />
       <TransactionHistoryTable />
     </div>
   );

@@ -6,6 +6,7 @@ import {
   CorridorAssetIcon,
   parseCorridorPairCodes,
 } from "@/app/dashboard/corridors/CorridorAssetIcon";
+import OrderBookDepthChart from "@/components/charts/OrderBookDepthChart";
 
 interface CorridorPageProps {
   params: Promise<{ id: string }>;
@@ -134,7 +135,10 @@ export default async function CorridorDetailPage({ params }: CorridorPageProps) 
         <h2 className="text-lg font-semibold mb-4 text-neutral-200">
           Order Book Depth
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <OrderBookDepthChart bids={corridor.bids} asks={corridor.asks} label={corridor.pair} height={220} />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           <div>
             <p className="text-xs uppercase text-neutral-500 font-mono mb-2">
               Asks
