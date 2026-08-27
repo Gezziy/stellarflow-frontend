@@ -32,7 +32,13 @@ const TOGGLE_STYLES = {
 export default function SettingsPage() {
   const [showKey, setShowKey] = useState(false);
   const [screenLockModalOpen, setScreenLockModalOpen] = useState(false);
-  const { isEnabled: soundEffectsEnabled, toggle: toggleSoundEffects } = useTransactionAudio();
+  const {
+    isEnabled: soundEffectsEnabled,
+    toggle: toggleSoundEffects,
+    currentPack,
+    setSoundPack,
+    playPreview,
+  } = useTransactionAudio();
   const { isPinSet, isLocked, idleTimeoutMinutes, lockNow } = useScreenLock();
   const [settings, setSettings] = useState<Settings>({
     emailReports: true,
@@ -46,8 +52,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const prefs = loadPreferences();
-    setSettings((prev) => ({ ...prev, pushNotifications: prefs.enabled }));
-    setSavedSettings((prev) => ({ ...prev, pushNotifications: prefs.enabled }));
+    setTimeout(() => {
+      setSettings((prev) => ({ ...prev, pushNotifications: prefs.enabled }));
+      setSavedSettings((prev) => ({ ...prev, pushNotifications: prefs.enabled }));
+    }, 0);
   }, []);
 
   const debouncedSettings = useDebounce(settings, 500);
@@ -171,6 +179,58 @@ export default function SettingsPage() {
               enabled={soundEffectsEnabled}
               onToggle={toggleSoundEffects}
             />
+            {soundEffectsEnabled && (
+              <div className="pl-12 pr-3 py-3 border-t border-gray-800 space-y-4">
+                <div>
+                  <p className="text-sm font-semibold text-gray-300">Sound Pack Theme</p>
+                  <p className="text-xs text-gray-500">Choose a synthesizer voice for transaction notifications.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {(
+                    [
+                      { id: 'minimalist', label: 'Minimalist' },
+                      { id: 'retro', label: 'Retro 8-Bit' },
+                      { id: 'futuristic', label: 'Futuristic Synth' },
+                      { id: 'muted', label: 'Muted' },
+                    ] as const
+                  ).map((pack) => (
+                    <div
+                      key={pack.id}
+                      onClick={() => setSoundPack(pack.id)}
+                      className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                        currentPack === pack.id
+                          ? 'border-blue-500 bg-blue-600/10'
+                          : 'border-gray-800 bg-[#0d1117]/50 hover:border-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="soundPack"
+                          checked={currentPack === pack.id}
+                          onChange={() => setSoundPack(pack.id)}
+                          className="text-blue-500 focus:ring-blue-500 bg-transparent border-gray-700 cursor-pointer"
+                        />
+                        <span className="text-sm font-medium text-gray-200">{pack.label}</span>
+                      </div>
+                      {pack.id !== 'muted' && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            playPreview(pack.id);
+                          }}
+                          className="flex items-center justify-center p-1.5 rounded-md hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+                          title={`Preview ${pack.label}`}
+                        >
+                          <Icon id={ICON_IDS.volume2} size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

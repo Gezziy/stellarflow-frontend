@@ -50,7 +50,7 @@ export function PageTransition({ children, className }: PageTransitionProps) {
         animate="animate"
         exit="exit"
         variants={variants}
-        transition={getTransition(shouldReduceMotion)}
+        transition={getTransition(Boolean(shouldReduceMotion))}
       >
         {children}
       </motion.div>
