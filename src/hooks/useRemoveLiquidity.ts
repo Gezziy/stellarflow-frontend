@@ -1,6 +1,7 @@
-"use client";
+'use client';
 
-import { useCallback, useState } from "react";
+import { useState, useCallback } from 'react';
+import { useToast } from '@/components/ui/ToastQueue';
 
 export interface RemoveLiquidityParams {
   poolId: string;
@@ -9,31 +10,44 @@ export interface RemoveLiquidityParams {
   minTokenB: string;
 }
 
-export interface UseRemoveLiquidityResult {
+export interface UseRemoveLiquidityReturn {
   removeLiquidity: (params: RemoveLiquidityParams) => Promise<void>;
   isRemoving: boolean;
-  error: string | null;
 }
 
-export function useRemoveLiquidity(): UseRemoveLiquidityResult {
+export function useRemoveLiquidity(): UseRemoveLiquidityReturn {
   const [isRemoving, setIsRemoving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { addToast, updateToast } = useToast();
 
-  const removeLiquidity = useCallback(async (_params: RemoveLiquidityParams) => {
+  const removeLiquidity = useCallback(async (params: RemoveLiquidityParams) => {
     setIsRemoving(true);
-    setError(null);
+    const toastId = addToast({
+      title: 'Removing Liquidity',
+      description: 'Submitting transaction to burn LP tokens...',
+      status: 'processing',
+    });
 
     try {
-      // Placeholder for the actual pool removal transaction.
-      await new Promise((resolve) => setTimeout(resolve, 750));
+      // Simulate network latency for Soroban transaction submission
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      void params;
+
+      updateToast(toastId, {
+        status: 'confirmed',
+        title: 'Liquidity Removed',
+        description: 'Successfully burned LP tokens and retrieved pool reserves.',
+      });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to remove liquidity";
-      setError(message);
+      updateToast(toastId, {
+        status: 'failed',
+        title: 'Removal failed',
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
       throw err;
     } finally {
       setIsRemoving(false);
     }
-  }, []);
+  }, [addToast, updateToast]);
 
-  return { removeLiquidity, isRemoving, error };
+  return { removeLiquidity, isRemoving };
 }

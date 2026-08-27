@@ -29,6 +29,7 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
   onSuccess,
 }) => {
   const { wallet } = useWallet();
+  const isConnected = wallet?.connected || false;
   const { removeLiquidity, isRemoving } = useRemoveLiquidity();
 
   const [percentage, setPercentage] = useState<number>(50);

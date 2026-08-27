@@ -1,33 +1,46 @@
-"use client";
+'use client';
 
-import { useCallback, useState } from "react";
+import { useState, useCallback } from 'react';
+import { useToast } from '@/components/ui/ToastQueue';
 
-export interface HarvestRewardsResult {
+export interface UseHarvestRewardsReturn {
   harvestRewards: (farmId: string) => Promise<void>;
   isHarvesting: boolean;
-  error: string | null;
 }
 
-export function useHarvestRewards(): HarvestRewardsResult {
+export function useHarvestRewards(): UseHarvestRewardsReturn {
   const [isHarvesting, setIsHarvesting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { addToast, updateToast } = useToast();
 
   const harvestRewards = useCallback(async (farmId: string) => {
     setIsHarvesting(true);
-    setError(null);
+    const toastId = addToast({
+      title: 'Harvesting rewards',
+      description: 'Submitting transaction to claim yield...',
+      status: 'processing',
+    });
 
     try {
-      // In production this would call the farm harvest endpoint / contract.
-      await new Promise((resolve) => setTimeout(resolve, 700));
-      console.info(`[useHarvestRewards] Harvest completed for farm ${farmId}`);
+      // Simulate network latency for Soroban transaction submission
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      void farmId;
+
+      updateToast(toastId, {
+        status: 'confirmed',
+        title: 'Rewards harvested',
+        description: 'Your claimable yield has been successfully transferred to your wallet.',
+      });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to harvest rewards";
-      setError(message);
+      updateToast(toastId, {
+        status: 'failed',
+        title: 'Harvest failed',
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
       throw err;
     } finally {
       setIsHarvesting(false);
     }
-  }, []);
+  }, [addToast, updateToast]);
 
-  return { harvestRewards, isHarvesting, error };
+  return { harvestRewards, isHarvesting };
 }

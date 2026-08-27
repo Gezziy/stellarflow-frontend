@@ -7,8 +7,7 @@ import React, {
   useRef,
   useEffect,
 } from "react";
-import Fuse from "fuse.js";
-import type { IFuseOptions } from "fuse.js";
+import Fuse, { IFuseOptions } from "fuse.js";
 import DOMPurify from "isomorphic-dompurify";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { useIsHydrated } from "@/app/hooks/useIsHydrated";

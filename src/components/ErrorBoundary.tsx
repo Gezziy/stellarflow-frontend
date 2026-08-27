@@ -15,12 +15,12 @@ import * as Sentry from "@sentry/nextjs";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
-  fallback?: React.ReactNode;
+  fallback?: React.ReactElement;
   /** Extra context tags attached to the captured Sentry event, e.g. { section: "order-book" }. */
   tags?: Record<string, string>;
 }
 
-const DEFAULT_FALLBACK = (
+const DEFAULT_FALLBACK: React.ReactElement = (
   <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-xs font-medium text-rose-400">
     Something went wrong rendering this section.
   </div>
@@ -32,6 +32,10 @@ export function ErrorBoundary({ children, fallback, tags }: ErrorBoundaryProps) 
   return (
     <Sentry.ErrorBoundary
       fallback={renderFallback}
+  const fallbackElement = fallback ?? DEFAULT_FALLBACK;
+  return (
+    <Sentry.ErrorBoundary
+      fallback={React.isValidElement(fallbackElement) ? fallbackElement : DEFAULT_FALLBACK}
       showDialog={false}
       beforeCapture={(scope) => {
         if (tags) scope.setTags(tags);

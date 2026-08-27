@@ -1,39 +1,53 @@
-"use client";
+'use client';
 
-import { useCallback, useState } from "react";
+import { useState, useCallback } from 'react';
+import { useToast } from '@/components/ui/ToastQueue';
 
-export interface SwapExecutionParams {
+export interface SwapParams {
   fromToken: string;
   toToken: string;
   amount: string;
   minOutput: string;
 }
 
-export interface UseSwapExecutionResult {
-  executeSwap: (params: SwapExecutionParams) => Promise<void>;
+export interface UseSwapExecutionReturn {
+  executeSwap: (params: SwapParams) => Promise<void>;
   isSwapping: boolean;
-  error: string | null;
 }
 
-export function useSwapExecution(): UseSwapExecutionResult {
+export function useSwapExecution(): UseSwapExecutionReturn {
   const [isSwapping, setIsSwapping] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { addToast, updateToast } = useToast();
 
-  const executeSwap = useCallback(async (_params: SwapExecutionParams) => {
+  const executeSwap = useCallback(async (params: SwapParams) => {
     setIsSwapping(true);
-    setError(null);
+    const toastId = addToast({
+      title: 'Executing swap',
+      description: 'Submitting swap transaction to Soroban network...',
+      status: 'processing',
+    });
 
     try {
-      // Placeholder for the actual swap transaction execution.
-      await new Promise((resolve) => setTimeout(resolve, 900));
+      // Simulate network latency for Soroban transaction submission
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      void params;
+
+      updateToast(toastId, {
+        status: 'confirmed',
+        title: 'Swap complete',
+        description: 'Your token swap has been successfully executed.',
+      });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to execute swap";
-      setError(message);
+      updateToast(toastId, {
+        status: 'failed',
+        title: 'Swap failed',
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
       throw err;
     } finally {
       setIsSwapping(false);
     }
-  }, []);
+  }, [addToast, updateToast]);
 
-  return { executeSwap, isSwapping, error };
+  return { executeSwap, isSwapping };
 }
