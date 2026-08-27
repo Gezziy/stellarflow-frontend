@@ -2,6 +2,7 @@
 
 import React, { useMemo, useCallback, useEffect, useRef, useState } from "react";
 import { subscribe } from "@/workers/masterTimerWorker";
+import { useDebounce } from "@/app/hooks/useDebounce";
 import { withShortenedAddressField } from "@/utils/addressUtils";
 import { useIsHydrated } from "@/app/hooks/useIsHydrated";
 import Icon from "@/components/icons/Icon";
@@ -34,8 +35,8 @@ export interface ProposalRecord {
 
 export interface ProposalListProps {
   proposals: ProposalRecord[];
-  /** Filter applied externally (e.g. tab selection). Defaults to "all". */
-  filter?: "all" | "active" | "archived";
+  /** Status filter applied externally (e.g. tab selection). Defaults to "all". */
+  filter?: "all" | ProposalStatus;
   /** Called when the user clicks Vote on an active proposal. */
   onVote?: (proposal: ProposalRecord) => void;
 }
@@ -293,17 +294,20 @@ ProposalRow.displayName = "ProposalRow";
 // Empty State
 // ─────────────────────────────────────────────────────────────────────────────
 
-function EmptyState({ filter }: { filter: ProposalListProps["filter"] }) {
-  const label =
-    filter === "active"
-      ? "active proposals"
-      : filter === "archived"
-      ? "archived proposals"
-      : "proposals";
+function EmptyState({
+  filter,
+  hasSearch,
+}: {
+  filter: ProposalListProps["filter"];
+  hasSearch: boolean;
+}) {
+  const label = filter ? `${filter.toLowerCase()} proposals` : "proposals";
   return (
     <div className="flex flex-col items-center justify-center py-16 text-gray-500 gap-3">
       <Icon id={ICON_IDS.vote} size={32} className="opacity-30" />
-      <p className="text-sm">No {label} found</p>
+      <p className="text-sm">
+        {hasSearch ? `No ${label} match your search` : `No ${label} found`}
+      </p>
     </div>
   );
 }
@@ -314,6 +318,9 @@ function EmptyState({ filter }: { filter: ProposalListProps["filter"] }) {
 
 export function ProposalList({ proposals, filter = "all", onVote }: ProposalListProps) {
   const isHydrated = useIsHydrated();
+  const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 250);
+  const deferredSearch = React.useDeferredValue(debouncedSearch);
 
   // Pre-compute shortened proposer addresses at ingestion time
   const enrichedProposals = useMemo(
@@ -321,15 +328,21 @@ export function ProposalList({ proposals, filter = "all", onVote }: ProposalList
     [proposals],
   );
 
-  // Filter by tab selection
+  // Search runs from the deferred value so typing stays responsive while the
+  // visible proposal collection updates after the debounce period.
   const visibleProposals = useMemo(() => {
-    if (filter === "active") return enrichedProposals.filter((p) => p.status === "Active");
-    if (filter === "archived")
-      return enrichedProposals.filter(
-        (p) => p.status === "Passed" || p.status === "Executed" || p.status === "Rejected",
-      );
-    return enrichedProposals;
-  }, [enrichedProposals, filter]);
+    const query = deferredSearch.trim().toLowerCase();
+
+    return enrichedProposals.filter((proposal) => {
+      const matchesStatus = filter === "all" || proposal.status === filter;
+      const matchesSearch =
+        query.length === 0 ||
+        proposal.title.toLowerCase().includes(query) ||
+        proposal.description?.toLowerCase().includes(query);
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [deferredSearch, enrichedProposals, filter]);
 
   // Live ledger countdown — shared RAF ticker, throttled to one decrement per
   // ~STELLAR_LEDGER_SECONDS seconds rather than every frame.
@@ -368,21 +381,34 @@ export function ProposalList({ proposals, filter = "all", onVote }: ProposalList
     return unsub;
   }, [isHydrated, onTick]);
 
-  if (visibleProposals.length === 0) {
-    return <EmptyState filter={filter} />;
-  }
-
   return (
-    <div className="space-y-4">
-      {visibleProposals.map((proposal) => (
-        <ProposalRow
-          key={proposal.id}
-          proposal={proposal}
-          ledgersRemaining={ledgerCounts[proposal.id] ?? proposal.endsInLedgers}
-          isHydrated={isHydrated}
-          onVote={onVote}
+    <div>
+      <div className="relative mb-6 max-w-xl">
+        <Icon id={ICON_IDS.search} size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder="Search proposal titles or descriptions..."
+          aria-label="Search proposal titles or descriptions"
+          className="w-full rounded-md border border-gray-700 bg-[#0d1117] py-2 pl-10 pr-4 text-sm text-gray-100 focus:border-blue-500 focus:outline-none"
         />
-      ))}
+      </div>
+      {visibleProposals.length === 0 ? (
+        <EmptyState filter={filter} hasSearch={deferredSearch.trim().length > 0} />
+      ) : (
+        <div className="space-y-4">
+          {visibleProposals.map((proposal) => (
+            <ProposalRow
+              key={proposal.id}
+              proposal={proposal}
+              ledgersRemaining={ledgerCounts[proposal.id] ?? proposal.endsInLedgers}
+              isHydrated={isHydrated}
+              onVote={onVote}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
