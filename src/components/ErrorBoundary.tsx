@@ -27,9 +27,10 @@ const DEFAULT_FALLBACK = (
 );
 
 export function ErrorBoundary({ children, fallback, tags }: ErrorBoundaryProps) {
+  const fallbackElement = fallback ?? DEFAULT_FALLBACK;
   return (
     <Sentry.ErrorBoundary
-      fallback={fallback ?? DEFAULT_FALLBACK}
+      fallback={React.isValidElement(fallbackElement) ? fallbackElement : DEFAULT_FALLBACK}
       showDialog={false}
       beforeCapture={(scope) => {
         if (tags) scope.setTags(tags);
