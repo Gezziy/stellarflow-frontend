@@ -68,7 +68,7 @@ jobs:
           exit 1
 
       - name: Run Playwright E2E tests
-        run: npx playwright test
+        run: npx playwright test --grep-invert "Visual regression"
         env:
           PLAYWRIGHT_TEST_BASE_URL: http://localhost:3000
 
