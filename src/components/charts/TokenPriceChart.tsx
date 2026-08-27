@@ -28,7 +28,7 @@ export const TokenPriceChart: React.FC<TokenPriceChartProps> = ({
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const seriesRef = useRef<ISeriesApi<any> | null>(null);
 
   const [activeTimeframe, setActiveTimeframe] = useState<Timeframe>('24H');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -75,7 +75,7 @@ export const TokenPriceChart: React.FC<TokenPriceChartProps> = ({
       },
     });
 
-    const candlestickSeries = chart.addCandlestickSeries({
+    const candlestickSeries = chart.addSeries('Candlestick' as any, {
       upColor: '#10B981',
       downColor: '#EF4444',
       borderVisible: false,
