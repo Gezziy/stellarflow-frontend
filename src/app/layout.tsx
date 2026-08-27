@@ -16,6 +16,7 @@ import { SwUpdateBanner } from "@/components/pwa/SwUpdateBanner";
 import { ScreenLockProvider } from "@/components/security/ScreenLockModal";
 import { headers } from "next/headers";
 import { AccessibilityProvider } from "@/context/AccessibilityContext";
+import { HapticProvider } from "@/components/providers/HapticProvider";
 
 export const metadata: Metadata = {
   title: "StellarFlow Network Dashboard",
@@ -130,19 +131,21 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <AccessibilityProvider>
-            <UserProvider>
-              <QueryProvider>
-                <ProgressBarProvider>
-                    <ToastProvider>
-                      <ErrorBoundary tags={{ section: "root" }}>
-                        <ScreenLockProvider>{children}</ScreenLockProvider>
-                      </ErrorBoundary>
-                    </ToastProvider>
-                    <SwUpdateBanner />
-                    <InstallBanner />
-                </ProgressBarProvider>
-              </QueryProvider>
-            </UserProvider>
+            <HapticProvider>
+              <UserProvider>
+                <QueryProvider>
+                  <ProgressBarProvider>
+                      <ToastProvider>
+                        <ErrorBoundary tags={{ section: "root" }}>
+                          <ScreenLockProvider>{children}</ScreenLockProvider>
+                        </ErrorBoundary>
+                      </ToastProvider>
+                      <SwUpdateBanner />
+                      <InstallBanner />
+                  </ProgressBarProvider>
+                </QueryProvider>
+              </UserProvider>
+            </HapticProvider>
           </AccessibilityProvider>
         </ThemeProvider>
       </body>
