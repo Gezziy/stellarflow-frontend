@@ -129,19 +129,21 @@ export default async function RootLayout({
           storageKey="stellarflow-theme"
           disableTransitionOnChange
         >
-          <UserProvider>
-            <QueryProvider>
-              <ProgressBarProvider>
-                  <ToastProvider>
-                    <ErrorBoundary tags={{ section: "root" }}>
-                      <ScreenLockProvider>{children}</ScreenLockProvider>
-                    </ErrorBoundary>
-                  </ToastProvider>
-                  <SwUpdateBanner />
-                  <InstallBanner />
-              </ProgressBarProvider>
-            </QueryProvider>
-          </UserProvider>
+          <AccessibilityProvider>
+            <UserProvider>
+              <QueryProvider>
+                <ProgressBarProvider>
+                    <ToastProvider>
+                      <ErrorBoundary tags={{ section: "root" }}>
+                        <ScreenLockProvider>{children}</ScreenLockProvider>
+                      </ErrorBoundary>
+                    </ToastProvider>
+                    <SwUpdateBanner />
+                    <InstallBanner />
+                </ProgressBarProvider>
+              </QueryProvider>
+            </UserProvider>
+          </AccessibilityProvider>
         </ThemeProvider>
       </body>
     </html>
